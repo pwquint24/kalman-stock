@@ -1,6 +1,7 @@
 # Kalman Filtering vs. ARMA Models for Stock Forecasting
 
-A comparative framework in Wolfram Language for extracting dynamic trend from stock
+A notebook looking, for educational purposes, at methods for 
+ for extracting dynamic trend from stock
 prices and forecasting future prices, using two distinct mathematical paradigms:
 classical ARMA econometrics and Kalman state-space filtering.
 
