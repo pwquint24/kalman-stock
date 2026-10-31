@@ -1,0 +1,6992 @@
+(* Content-type: application/vnd.wolfram.mathematica *)
+
+(*** Wolfram Notebook File ***)
+(* http://www.wolfram.com/nb *)
+
+(* Created By: SaveReadableNotebook *)
+(* https://resources.wolframcloud.com/FunctionRepository/resources/SaveReadableNotebook *)
+
+Notebook[
+ {
+  Cell[
+   "Kalman Filtering vs. ARMA Models for Stock Trend Extraction and Future Price Prediction",
+   "Title"
+  ],
+  Cell[
+   "A Rigorous Comparative Framework in Wolfram Language: Trend Derivation, Out-of-Sample Forecasting, and Rolling Walk-Forward Backtesting. ",
+   "Text"
+  ],
+  Cell[
+   "1. Executive Summary and Theoretical Framework",
+   "Section"
+  ],
+  Cell[
+   "Predicting future stock prices and extracting dynamic trends are two foundational problems in quantitative finance. Two distinct mathematical paradigms are commonly employed:",
+   "Text"
+  ],
+  Cell[
+   "1. Autoregressive Moving Average (ARMA) Models: Rooted in classical econometric time series analysis (Box-Jenkins methodology), ARMA models capture stationary autocorrelation structures in returns and project them forward toward the unconditional long-term drift rate.",
+   "Text"
+  ],
+  Cell[
+   "2. Kalman Filtering and State-Space Models: Rooted in control theory and Bayesian dynamic linear models, Kalman filters estimate unobserved hidden states (the true trend level and instantaneous momentum/drift) from noisy sequential observations, updating estimates recursively with optimal Bayesian variance reduction. ",
+   "Text"
+  ],
+  Cell["Research Objective", "Subsection"],
+  Cell[
+   "How accurately can ARMA models and Kalman Filter trend models predict the expected future price of a stock (specifically, the expected average price over an investment horizon, such as a 20-day trading month)? ",
+   "Text"
+  ],
+  Cell["Mathematical Specification", "Subsection"],
+  Cell[
+   "(A) The ARMA Process on Stock Returns",
+   "Subsubsection"
+  ],
+  Cell[
+   "Stock price levels P_t are non-stationary I(1) processes. Direct ARMA estimation on raw prices often fails or yields explosive roots (|phi| >= 1). We therefore model stationary continuously compounded log returns:",
+   "Text"
+  ],
+  Cell[
+   TextData[
+    {
+     "  r",
+     StyleBox["t = ln(P", FontSlant -> Italic],
+     "t / P",
+     StyleBox["{t-1}) = ln(P", FontSlant -> Italic],
+     "t) - ln(P_{t-1})"
+    }
+   ],
+   "Text"
+  ],
+  Cell[
+   "An ARMA(p, q) process for returns is defined as:",
+   "Text"
+  ],
+  Cell[
+   TextData[
+    {
+     "  r",
+     StyleBox["t = c + Sum[phi", FontSlant -> Italic],
+     "i  r",
+     StyleBox["{t-i}, {i, 1, p}] + eps", FontSlant -> Italic],
+     "t + Sum[theta_j  eps_{t-j}, {j, 1, q}]"
+    }
+   ],
+   "Text"
+  ],
+  Cell[
+   TextData[
+    {
+     "Given multi-step forecasted returns {r",
+     StyleBox["{T+1}, ..., r", FontSlant -> Italic],
+     "{T+H}}, the reconstructed future price trajectory is:"
+    }
+   ],
+   "Text"
+  ],
+  Cell[
+   TextData[
+    {
+     "  P",
+     StyleBox["{T+h} = P", FontSlant -> Italic],
+     "T * Exp[Accumulate[{r",
+     StyleBox["{T+1}, ..., r", FontSlant -> Italic],
+     "{T+h}}]]"
+    }
+   ],
+   "Text"
+  ],
+  Cell[
+   "The expected average future price over horizon H is:",
+   "Text"
+  ],
+  Cell[
+   TextData[
+    {
+     "  P",
+     StyleBox["avg", FontSlant -> Italic],
+     "ARMA = (1/H) * Sum[P_{T+h}, {h, 1, H}] "
+    }
+   ],
+   "Text"
+  ],
+  Cell[
+   "(B) The Local Linear Trend (LLT) Kalman Filter",
+   "Subsubsection"
+  ],
+  Cell[
+   TextData[
+    {
+     "The state-space model decomposes price y",
+     StyleBox["t = P", FontSlant -> Italic],
+     "t into an unobserved dynamic level mu",
+     StyleBox["t and velocity/slope beta", FontSlant -> Italic],
+     "t:"
+    }
+   ],
+   "Text"
+  ],
+  Cell[
+   TextData[
+    {
+     "  Observation Equation:  y",
+     StyleBox["t = mu", FontSlant -> Italic],
+     "t + eps",
+     StyleBox["t,        eps", FontSlant -> Italic],
+     "t ~ N(0, sigma_eps^2)"
+    }
+   ],
+   "Text"
+  ],
+  Cell[
+   TextData[
+    {
+     "  Level Transition:      mu",
+     StyleBox["{t+1} = mu", FontSlant -> Italic],
+     "t + beta",
+     StyleBox["t + eta", FontSlant -> Italic],
+     "mu",
+     StyleBox["t,  eta", FontSlant -> Italic],
+     "mu",
+     StyleBox["t ~ N(0, sigma", FontSlant -> Italic],
+     "mu^2)"
+    }
+   ],
+   "Text"
+  ],
+  Cell[
+   TextData[
+    {
+     "  Slope Transition:      beta",
+     StyleBox["{t+1} = beta", FontSlant -> Italic],
+     "t + eta",
+     StyleBox["beta", FontSlant -> Italic],
+     "t,     eta",
+     StyleBox["beta", FontSlant -> Italic],
+     "t ~ N(0, sigma_beta^2)"
+    }
+   ],
+   "Text"
+  ],
+  Cell[
+   TextData[
+    {
+     "Forward extrapolation h steps ahead from terminal state (mu",
+     StyleBox["T, beta", FontSlant -> Italic],
+     "T):"
+    }
+   ],
+   "Text"
+  ],
+  Cell[
+   TextData[
+    {
+     "  P",
+     StyleBox["{Kalman, T+h} = mu", FontSlant -> Italic],
+     "T + h * beta_T"
+    }
+   ],
+   "Text"
+  ],
+  Cell[
+   "The expected average future price over horizon H is analytically:",
+   "Text"
+  ],
+  Cell[
+   TextData[
+    {
+     "  P",
+     StyleBox["avg", FontSlant -> Italic],
+     "Kalman = (1/H) ",
+     StyleBox[" Sum[mu_T + h ", FontSlant -> Italic],
+     " beta",
+     StyleBox["T, {h, 1, H}] = mu", FontSlant -> Italic],
+     "T + ((H + 1) / 2) * beta_T "
+    }
+   ],
+   "Text"
+  ],
+  Cell[
+   BoxData[
+    TagBox[
+     GridBox[
+      {
+       {TemplateBox[{0}, "Spacer1"]},
+       {TemplateBox[{0}, "Spacer1"]}
+      },
+      AutoDelete -> False,
+      FrameStyle ->
+       Directive[
+        LightDarkSwitched[GrayLevel[0.8], GrayLevel[0.48678]],
+        AbsoluteThickness[1]
+       ],
+      GridBoxDividers -> {
+       "Columns" -> {False, {True}, False},
+       "Rows" -> {False, {True}, False}
+      },
+      GridBoxItemSize -> {"Columns" -> {{Fit}}, "Rows" -> {{Automatic}}}
+     ],
+     "Grid"
+    ]
+   ],
+   "Text",
+   "MarkdownDelimiter",
+   ShowStringCharacters -> False,
+   Background -> None
+  ],
+  Cell[
+   "2. Stock Data Acquisition and Preprocessing",
+   "Section"
+  ],
+  Cell[
+   "We acquire daily historical data for the S&P 500 ETF (SPY) using Wolfram Language's built-in FinancialData. We convert Quantity expressions to pure numeric values and compute continuously compounded log returns. ",
+   "Text"
+  ],
+  Cell[
+   BoxData[
+    RowBox[
+     {
+      RowBox[
+       {
+        "(*",
+        " ",
+        RowBox[
+         {
+          "Define",
+          " ",
+          "stock",
+          " ",
+          "ticker",
+          " ",
+          "and",
+          " ",
+          "evaluation",
+          " ",
+          "date",
+          " ",
+          "range"
+         }
+        ],
+        " ",
+        "*)"
+       }
+      ],
+      "\[IndentingNewLine]",
+      RowBox[
+       {
+        RowBox[{RowBox[{"ticker", "=", "\"SPY\""}], ";"}],
+        "\[IndentingNewLine]",
+        RowBox[
+         {
+          RowBox[
+           {
+            "startDate",
+            "=",
+            RowBox[{"{", RowBox[{"2023", ",", "1", ",", "1"}], "}"}]
+           }
+          ],
+          ";"
+         }
+        ],
+        "\[IndentingNewLine]",
+        RowBox[
+         {
+          RowBox[
+           {
+            "endDate",
+            "=",
+            RowBox[{"{", RowBox[{"2024", ",", "12", ",", "31"}], "}"}]
+           }
+          ],
+          ";"
+         }
+        ],
+        "\[IndentingNewLine]",
+        "\[IndentingNewLine]",
+        RowBox[
+         {
+          RowBox[
+           {
+            "Print",
+            "[",
+            RowBox[
+             {
+              "\"Fetching historical daily data for \"",
+              ",",
+              "ticker",
+              ",",
+              "\"...\""
+             }
+            ],
+            "]"
+           }
+          ],
+          ";"
+         }
+        ],
+        "\[IndentingNewLine]",
+        RowBox[
+         {
+          RowBox[
+           {
+            "rawTS",
+            "=",
+            RowBox[
+             {
+              "FinancialData",
+              "[",
+              RowBox[
+               {
+                "ticker",
+                ",",
+                RowBox[{"{", RowBox[{"startDate", ",", "endDate"}], "}"}]
+               }
+              ],
+              "]"
+             }
+            ]
+           }
+          ],
+          ";"
+         }
+        ],
+        "\[IndentingNewLine]",
+        "\[IndentingNewLine]",
+        RowBox[
+         {
+          "(*",
+          " ",
+          RowBox[
+           {
+            "Extract",
+            " ",
+            "pure",
+            " ",
+            "numeric",
+            " ",
+            "prices",
+            " ",
+            "and",
+            " ",
+            "trading",
+            " ",
+            "dates"
+           }
+          ],
+          " ",
+          "*)"
+         }
+        ],
+        "\[IndentingNewLine]",
+        RowBox[
+         {
+          RowBox[
+           {
+            "pricesTS",
+            "=",
+            RowBox[{"QuantityMagnitude", "[", "rawTS", "]"}]
+           }
+          ],
+          ";"
+         }
+        ],
+        "\[IndentingNewLine]",
+        RowBox[
+         {
+          RowBox[
+           {
+            "tradingDates",
+            "=",
+            RowBox[{"pricesTS", "[", "\"Dates\"", "]"}]
+           }
+          ],
+          ";"
+         }
+        ],
+        "\[IndentingNewLine]",
+        RowBox[
+         {
+          RowBox[
+           {
+            "rawPrices",
+            "=",
+            RowBox[
+             {
+              "Normal",
+              "[",
+              RowBox[{"pricesTS", "[", "\"Values\"", "]"}],
+              "]"
+             }
+            ]
+           }
+          ],
+          ";"
+         }
+        ],
+        "\[IndentingNewLine]",
+        RowBox[
+         {
+          RowBox[
+           {"nTotal", "=", RowBox[{"Length", "[", "rawPrices", "]"}]}
+          ],
+          ";"
+         }
+        ],
+        "\[IndentingNewLine]",
+        "\[IndentingNewLine]",
+        RowBox[
+         {
+          RowBox[
+           {
+            "Print",
+            "[",
+            RowBox[
+             {
+              "\"Successfully loaded \"",
+              ",",
+              "nTotal",
+              ",",
+              "\" trading days from \"",
+              ",",
+              "\[IndentingNewLine]",
+              "  ",
+              RowBox[
+               {
+                "DateString",
+                "[",
+                RowBox[
+                 {
+                  RowBox[{"First", "[", "tradingDates", "]"}],
+                  ",",
+                  RowBox[
+                   {
+                    "{",
+                    RowBox[{"\"MonthName\"", ",", "\" \"", ",", "\"Year\""}],
+                    "}"
+                   }
+                  ]
+                 }
+                ],
+                "]"
+               }
+              ],
+              ",",
+              "\" to \"",
+              ",",
+              "\[IndentingNewLine]",
+              "  ",
+              RowBox[
+               {
+                "DateString",
+                "[",
+                RowBox[
+                 {
+                  RowBox[{"Last", "[", "tradingDates", "]"}],
+                  ",",
+                  RowBox[
+                   {
+                    "{",
+                    RowBox[{"\"MonthName\"", ",", "\" \"", ",", "\"Year\""}],
+                    "}"
+                   }
+                  ]
+                 }
+                ],
+                "]"
+               }
+              ],
+              ",",
+              "\".\""
+             }
+            ],
+            "]"
+           }
+          ],
+          ";"
+         }
+        ]
+       }
+      ]
+     }
+    ]
+   ],
+   "Input"
+  ],
+  Cell[
+   "Next, we compute log returns and visualize the historical price trajectory alongside the daily return series. ",
+   "Text"
+  ],
+  Cell[
+   BoxData[
+    RowBox[
+     {
+      RowBox[
+       {
+        "(*",
+        " ",
+        RowBox[{"Compute", " ", "log", " ", "returns"}],
+        " ",
+        "*)"
+       }
+      ],
+      "\[IndentingNewLine]",
+      RowBox[
+       {
+        RowBox[
+         {
+          RowBox[
+           {"logPrices", "=", RowBox[{"Log", "[", "rawPrices", "]"}]}
+          ],
+          ";"
+         }
+        ],
+        "\[IndentingNewLine]",
+        RowBox[
+         {
+          RowBox[
+           {
+            "logReturns",
+            "=",
+            RowBox[{"Differences", "[", "logPrices", "]"}]
+           }
+          ],
+          ";"
+         }
+        ],
+        "\[IndentingNewLine]",
+        "\[IndentingNewLine]",
+        RowBox[
+         {
+          "(*",
+          " ",
+          RowBox[
+           {
+            "Plot",
+            " ",
+            "historical",
+            " ",
+            "prices",
+            " ",
+            "and",
+            " ",
+            "daily",
+            " ",
+            "returns"
+           }
+          ],
+          " ",
+          "*)"
+         }
+        ],
+        "\[IndentingNewLine]",
+        RowBox[
+         {
+          RowBox[
+           {
+            "pPrice",
+            "=",
+            RowBox[
+             {
+              "DateListPlot",
+              "[",
+              RowBox[
+               {
+                "pricesTS",
+                ",",
+                "\[IndentingNewLine]",
+                "  ",
+                RowBox[
+                 {
+                  "PlotStyle",
+                  "->",
+                  RowBox[
+                   {
+                    "Directive",
+                    "[",
+                    RowBox[
+                     {
+                      "Thick",
+                      ",",
+                      RowBox[
+                       {
+                        "RGBColor",
+                        "[",
+                        RowBox[{"0.1", ",", "0.4", ",", "0.7"}],
+                        "]"
+                       }
+                      ]
+                     }
+                    ],
+                    "]"
+                   }
+                  ]
+                 }
+                ],
+                ",",
+                "\[IndentingNewLine]",
+                "  ",
+                RowBox[
+                 {
+                  "PlotLabel",
+                  "->",
+                  RowBox[
+                   {
+                    "Style",
+                    "[",
+                    RowBox[
+                     {
+                      RowBox[
+                       {
+                        "ticker",
+                        " ",
+                        "<>",
+                        " ",
+                        "\" Daily Adjusted Close Price (2023 - 2024)\""
+                       }
+                      ],
+                      ",",
+                      "Bold",
+                      ",",
+                      "14"
+                     }
+                    ],
+                    "]"
+                   }
+                  ]
+                 }
+                ],
+                ",",
+                "\[IndentingNewLine]",
+                "  ",
+                RowBox[
+                 {
+                  "FrameLabel",
+                  "->",
+                  RowBox[{"{", RowBox[{"None", ",", "\"Price ($)\""}], "}"}]
+                 }
+                ],
+                ",",
+                "\[IndentingNewLine]",
+                "  ",
+                RowBox[{"GridLines", "->", "Automatic"}],
+                ",",
+                RowBox[{"ImageSize", "->", "550"}]
+               }
+              ],
+              "]"
+             }
+            ]
+           }
+          ],
+          ";"
+         }
+        ],
+        "\[IndentingNewLine]",
+        "\[IndentingNewLine]",
+        RowBox[
+         {
+          RowBox[
+           {
+            "pRet",
+            "=",
+            RowBox[
+             {
+              "ListLinePlot",
+              "[",
+              RowBox[
+               {
+                "logReturns",
+                ",",
+                "\[IndentingNewLine]",
+                "  ",
+                RowBox[
+                 {
+                  "PlotStyle",
+                  "->",
+                  RowBox[
+                   {
+                    "Directive",
+                    "[",
+                    RowBox[
+                     {
+                      "RGBColor",
+                      "[",
+                      RowBox[{"0.8", ",", "0.3", ",", "0.2"}],
+                      "]"
+                     }
+                    ],
+                    "]"
+                   }
+                  ]
+                 }
+                ],
+                ",",
+                "\[IndentingNewLine]",
+                "  ",
+                RowBox[
+                 {
+                  "PlotLabel",
+                  "->",
+                  RowBox[
+                   {
+                    "Style",
+                    "[",
+                    RowBox[
+                     {
+                      RowBox[
+                       {"ticker", " ", "<>", " ", "\" Daily Log Returns\""}
+                      ],
+                      ",",
+                      "Bold",
+                      ",",
+                      "14"
+                     }
+                    ],
+                    "]"
+                   }
+                  ]
+                 }
+                ],
+                ",",
+                "\[IndentingNewLine]",
+                "  ",
+                RowBox[
+                 {
+                  "AxesLabel",
+                  "->",
+                  RowBox[
+                   {
+                    "{",
+                    RowBox[{"\"Trading Day\"", ",", "\"Log Return\""}],
+                    "}"
+                   }
+                  ]
+                 }
+                ],
+                ",",
+                "\[IndentingNewLine]",
+                "  ",
+                RowBox[{"GridLines", "->", "Automatic"}],
+                ",",
+                RowBox[{"ImageSize", "->", "550"}]
+               }
+              ],
+              "]"
+             }
+            ]
+           }
+          ],
+          ";"
+         }
+        ],
+        "\[IndentingNewLine]",
+        "\[IndentingNewLine]",
+        RowBox[
+         {
+          "GraphicsColumn",
+          "[",
+          RowBox[
+           {
+            RowBox[{"{", RowBox[{"pPrice", ",", "pRet"}], "}"}],
+            ",",
+            RowBox[{"ImageSize", "->", "550"}]
+           }
+          ],
+          "]"
+         }
+        ]
+       }
+      ]
+     }
+    ]
+   ],
+   "Input"
+  ],
+  Cell[
+   "We now compute key summary statistics for the daily returns: ",
+   "CodeText"
+  ],
+  Cell[
+   BoxData[
+    RowBox[
+     {
+      RowBox[
+       {
+        "(*",
+        " ",
+        RowBox[
+         {
+          "Summary",
+          " ",
+          "statistics",
+          " ",
+          "for",
+          " ",
+          "log",
+          " ",
+          "returns"
+         }
+        ],
+        " ",
+        "*)"
+       }
+      ],
+      "\[IndentingNewLine]",
+      RowBox[
+       {
+        RowBox[
+         {
+          RowBox[
+           {"retMean", "=", RowBox[{"Mean", "[", "logReturns", "]"}]}
+          ],
+          ";"
+         }
+        ],
+        "\[IndentingNewLine]",
+        RowBox[
+         {
+          RowBox[
+           {
+            "retStd",
+            "=",
+            RowBox[{"StandardDeviation", "[", "logReturns", "]"}]
+           }
+          ],
+          ";"
+         }
+        ],
+        "\[IndentingNewLine]",
+        RowBox[
+         {
+          RowBox[
+           {
+            "retSkew",
+            "=",
+            RowBox[{"Skewness", "[", "logReturns", "]"}]
+           }
+          ],
+          ";"
+         }
+        ],
+        "\[IndentingNewLine]",
+        RowBox[
+         {
+          RowBox[
+           {
+            "retKurt",
+            "=",
+            RowBox[{"Kurtosis", "[", "logReturns", "]"}]
+           }
+          ],
+          ";"
+         }
+        ],
+        "\[IndentingNewLine]",
+        "\[IndentingNewLine]",
+        RowBox[
+         {
+          "Dataset",
+          "[",
+          RowBox[
+           {
+            "<|",
+            "\[IndentingNewLine]",
+            "  ",
+            RowBox[
+             {
+              RowBox[
+               {
+                "\"Sample Size (Days)\"",
+                "->",
+                RowBox[{"Length", "[", "logReturns", "]"}]
+               }
+              ],
+              ",",
+              "\[IndentingNewLine]",
+              "  ",
+              RowBox[
+               {
+                "\"Daily Mean Return\"",
+                "->",
+                RowBox[
+                 {
+                  "NumberForm",
+                  "[",
+                  RowBox[
+                   {
+                    "retMean",
+                    ",",
+                    RowBox[{"{", RowBox[{"6", ",", "5"}], "}"}]
+                   }
+                  ],
+                  "]"
+                 }
+                ]
+               }
+              ],
+              ",",
+              "\[IndentingNewLine]",
+              "  ",
+              RowBox[
+               {
+                "\"Annualized Return (x252)\"",
+                "->",
+                RowBox[
+                 {
+                  RowBox[
+                   {
+                    "NumberForm",
+                    "[",
+                    RowBox[
+                     {
+                      RowBox[{"retMean", "*", "252", "*", "100"}],
+                      ",",
+                      RowBox[{"{", RowBox[{"4", ",", "2"}], "}"}]
+                     }
+                    ],
+                    "]"
+                   }
+                  ],
+                  " ",
+                  "<>",
+                  " ",
+                  "\"%\""
+                 }
+                ]
+               }
+              ],
+              ",",
+              "\[IndentingNewLine]",
+              "  ",
+              RowBox[
+               {
+                "\"Daily Volatility\"",
+                "->",
+                RowBox[
+                 {
+                  "NumberForm",
+                  "[",
+                  RowBox[
+                   {
+                    "retStd",
+                    ",",
+                    RowBox[{"{", RowBox[{"6", ",", "5"}], "}"}]
+                   }
+                  ],
+                  "]"
+                 }
+                ]
+               }
+              ],
+              ",",
+              "\[IndentingNewLine]",
+              "  ",
+              RowBox[
+               {
+                "\"Annualized Volatility (xSqrt[252])\"",
+                "->",
+                RowBox[
+                 {
+                  RowBox[
+                   {
+                    "NumberForm",
+                    "[",
+                    RowBox[
+                     {
+                      RowBox[
+                       {
+                        "retStd",
+                        "*",
+                        RowBox[{"Sqrt", "[", "252", "]"}],
+                        "*",
+                        "100"
+                       }
+                      ],
+                      ",",
+                      RowBox[{"{", RowBox[{"4", ",", "2"}], "}"}]
+                     }
+                    ],
+                    "]"
+                   }
+                  ],
+                  " ",
+                  "<>",
+                  " ",
+                  "\"%\""
+                 }
+                ]
+               }
+              ],
+              ",",
+              "\[IndentingNewLine]",
+              "  ",
+              RowBox[
+               {
+                "\"Skewness\"",
+                "->",
+                RowBox[
+                 {
+                  "NumberForm",
+                  "[",
+                  RowBox[
+                   {
+                    "retSkew",
+                    ",",
+                    RowBox[{"{", RowBox[{"4", ",", "2"}], "}"}]
+                   }
+                  ],
+                  "]"
+                 }
+                ]
+               }
+              ],
+              ",",
+              "\[IndentingNewLine]",
+              "  ",
+              RowBox[
+               {
+                "\"Kurtosis\"",
+                "->",
+                RowBox[
+                 {
+                  "NumberForm",
+                  "[",
+                  RowBox[
+                   {
+                    "retKurt",
+                    ",",
+                    RowBox[{"{", RowBox[{"4", ",", "2"}], "}"}]
+                   }
+                  ],
+                  "]"
+                 }
+                ]
+               }
+              ]
+             }
+            ],
+            "\[IndentingNewLine]",
+            "|>"
+           }
+          ],
+          "]"
+         }
+        ]
+       }
+      ]
+     }
+    ]
+   ],
+   "Input"
+  ],
+  Cell[
+   BoxData[
+    TagBox[
+     GridBox[
+      {
+       {TemplateBox[{0}, "Spacer1"]},
+       {TemplateBox[{0}, "Spacer1"]}
+      },
+      AutoDelete -> False,
+      FrameStyle ->
+       Directive[
+        LightDarkSwitched[GrayLevel[0.8], GrayLevel[0.48678]],
+        AbsoluteThickness[1]
+       ],
+      GridBoxDividers -> {
+       "Columns" -> {False, {True}, False},
+       "Rows" -> {False, {True}, False}
+      },
+      GridBoxItemSize -> {"Columns" -> {{Fit}}, "Rows" -> {{Automatic}}}
+     ],
+     "Grid"
+    ]
+   ],
+   "Text",
+   "MarkdownDelimiter",
+   ShowStringCharacters -> False,
+   Background -> None
+  ],
+  Cell["3. ARMA Model Estimation on Returns", "Section"],
+  Cell[
+   "We partition the dataset into an in-sample training window (450 trading days) and an out-of-sample evaluation window (20 trading days, ~1 calendar month). We fit an ARMA process to stationary returns and forecast the future trajectory. ",
+   "Text"
+  ],
+  Cell[
+   BoxData[
+    RowBox[
+     {
+      RowBox[
+       {
+        "(*",
+        " ",
+        RowBox[
+         {
+          RowBox[{"Split", " ", "data", " ", "into", " ", "In"}],
+          "-",
+          RowBox[{"Sample", " ", "Training", " ", "and", " ", "Out"}],
+          "-",
+          "of",
+          "-",
+          RowBox[{"Sample", " ", "Testing", " ", "sets"}]
+         }
+        ],
+        " ",
+        "*)"
+       }
+      ],
+      "\[IndentingNewLine]",
+      RowBox[
+       {
+        RowBox[{RowBox[{"nTrain", "=", "450"}], ";"}],
+        "\[IndentingNewLine]",
+        RowBox[{RowBox[{"horizon", "=", "20"}], ";"}],
+        "\[IndentingNewLine]",
+        "\[IndentingNewLine]",
+        RowBox[
+         {
+          RowBox[
+           {
+            "trainPrices",
+            "=",
+            RowBox[
+             {
+              "rawPrices",
+              "[",
+              RowBox[{"[", RowBox[{"1", " ", ";;", " ", "nTrain"}], "]"}],
+              "]"
+             }
+            ]
+           }
+          ],
+          ";"
+         }
+        ],
+        "\[IndentingNewLine]",
+        RowBox[
+         {
+          RowBox[
+           {
+            "testPrices",
+            "=",
+            RowBox[
+             {
+              "rawPrices",
+              "[",
+              RowBox[
+               {
+                "[",
+                RowBox[
+                 {
+                  RowBox[{"nTrain", "+", "1"}],
+                  " ",
+                  ";;",
+                  " ",
+                  RowBox[{"nTrain", "+", "horizon"}]
+                 }
+                ],
+                "]"
+               }
+              ],
+              "]"
+             }
+            ]
+           }
+          ],
+          ";"
+         }
+        ],
+        "\[IndentingNewLine]",
+        "\[IndentingNewLine]",
+        RowBox[
+         {
+          RowBox[
+           {
+            "trainDates",
+            "=",
+            RowBox[
+             {
+              "tradingDates",
+              "[",
+              RowBox[{"[", RowBox[{"1", " ", ";;", " ", "nTrain"}], "]"}],
+              "]"
+             }
+            ]
+           }
+          ],
+          ";"
+         }
+        ],
+        "\[IndentingNewLine]",
+        RowBox[
+         {
+          RowBox[
+           {
+            "testDates",
+            "=",
+            RowBox[
+             {
+              "tradingDates",
+              "[",
+              RowBox[
+               {
+                "[",
+                RowBox[
+                 {
+                  RowBox[{"nTrain", "+", "1"}],
+                  " ",
+                  ";;",
+                  " ",
+                  RowBox[{"nTrain", "+", "horizon"}]
+                 }
+                ],
+                "]"
+               }
+              ],
+              "]"
+             }
+            ]
+           }
+          ],
+          ";"
+         }
+        ],
+        "\[IndentingNewLine]",
+        "\[IndentingNewLine]",
+        RowBox[
+         {
+          RowBox[
+           {
+            "trainLogReturns",
+            "=",
+            RowBox[
+             {
+              "Differences",
+              "[",
+              RowBox[{"Log", "[", "trainPrices", "]"}],
+              "]"
+             }
+            ]
+           }
+          ],
+          ";"
+         }
+        ],
+        "\[IndentingNewLine]",
+        "\[IndentingNewLine]",
+        RowBox[
+         {
+          RowBox[
+           {
+            "Print",
+            "[",
+            RowBox[
+             {
+              "\"Training sample size: \"",
+              ",",
+              RowBox[{"Length", "[", "trainPrices", "]"}],
+              ",",
+              "\" days.\""
+             }
+            ],
+            "]"
+           }
+          ],
+          ";"
+         }
+        ],
+        "\[IndentingNewLine]",
+        RowBox[
+         {
+          RowBox[
+           {
+            "Print",
+            "[",
+            RowBox[
+             {
+              "\"Testing forecast horizon: \"",
+              ",",
+              "horizon",
+              ",",
+              "\" days.\""
+             }
+            ],
+            "]"
+           }
+          ],
+          ";"
+         }
+        ]
+       }
+      ]
+     }
+    ]
+   ],
+   "Input"
+  ],
+  Cell[
+   "We now estimate the optimal ARMA model using TimeSeriesModelFit: ",
+   "CodeText"
+  ],
+  Cell[
+   BoxData[
+    RowBox[
+     {
+      RowBox[
+       {
+        "(*",
+        " ",
+        RowBox[
+         {
+          "Fit",
+          " ",
+          "an",
+          " ",
+          "ARMA",
+          " ",
+          "model",
+          " ",
+          "to",
+          " ",
+          "stationary",
+          " ",
+          "log",
+          " ",
+          "returns"
+         }
+        ],
+        " ",
+        "*)"
+       }
+      ],
+      "\[IndentingNewLine]",
+      RowBox[
+       {
+        RowBox[
+         {
+          RowBox[
+           {
+            "tsmARMA",
+            "=",
+            RowBox[
+             {
+              "TimeSeriesModelFit",
+              "[",
+              RowBox[{"trainLogReturns", ",", "\"ARMA\""}],
+              "]"
+             }
+            ]
+           }
+          ],
+          ";"
+         }
+        ],
+        "\[IndentingNewLine]",
+        RowBox[
+         {
+          RowBox[
+           {
+            "fittedProcess",
+            "=",
+            RowBox[{"tsmARMA", "[", "\"Process\"", "]"}]
+           }
+          ],
+          ";"
+         }
+        ],
+        "\[IndentingNewLine]",
+        "\[IndentingNewLine]",
+        RowBox[
+         {
+          RowBox[{"Print", "[", "\"Fitted ARMA Process:\"", "]"}],
+          ";"
+         }
+        ],
+        "\[IndentingNewLine]",
+        "fittedProcess"
+       }
+      ]
+     }
+    ]
+   ],
+   "Input"
+  ],
+  Cell[
+   "We verify the model fit using residual diagnostics: ",
+   "CodeText"
+  ],
+  Cell[
+   BoxData[
+    RowBox[
+     {
+      RowBox[
+       {
+        "(*",
+        " ",
+        RowBox[{"ARMA", " ", "Model", " ", "Diagnostics"}],
+        " ",
+        "*)"
+       }
+      ],
+      "\[IndentingNewLine]",
+      RowBox[
+       {
+        RowBox[
+         {
+          RowBox[
+           {
+            "residuals",
+            "=",
+            RowBox[
+             {
+              "Normal",
+              "[",
+              RowBox[
+               {
+                RowBox[{"tsmARMA", "[", "\"FitResiduals\"", "]"}],
+                "[",
+                "\"Values\"",
+                "]"
+               }
+              ],
+              "]"
+             }
+            ]
+           }
+          ],
+          ";"
+         }
+        ],
+        "\[IndentingNewLine]",
+        "\[IndentingNewLine]",
+        RowBox[
+         {
+          RowBox[
+           {
+            "pACF",
+            "=",
+            RowBox[
+             {
+              "ListPlot",
+              "[",
+              RowBox[
+               {
+                RowBox[
+                 {
+                  "Table",
+                  "[",
+                  RowBox[
+                   {
+                    RowBox[
+                     {
+                      "{",
+                      RowBox[
+                       {
+                        "lag",
+                        ",",
+                        RowBox[
+                         {
+                          "Correlation",
+                          "[",
+                          RowBox[
+                           {
+                            RowBox[
+                             {
+                              "trainLogReturns",
+                              "[",
+                              RowBox[
+                               {
+                                "[",
+                                RowBox[
+                                 {
+                                  "1",
+                                  " ",
+                                  ";;",
+                                  " ",
+                                  RowBox[{RowBox[{"-", "lag"}], "-", "1"}]
+                                 }
+                                ],
+                                "]"
+                               }
+                              ],
+                              "]"
+                             }
+                            ],
+                            ",",
+                            RowBox[
+                             {
+                              "trainLogReturns",
+                              "[",
+                              RowBox[
+                               {
+                                "[",
+                                RowBox[
+                                 {
+                                  RowBox[{"lag", "+", "1"}],
+                                  " ",
+                                  ";;",
+                                  " ",
+                                  RowBox[{"-", "1"}]
+                                 }
+                                ],
+                                "]"
+                               }
+                              ],
+                              "]"
+                             }
+                            ]
+                           }
+                          ],
+                          "]"
+                         }
+                        ]
+                       }
+                      ],
+                      "}"
+                     }
+                    ],
+                    ",",
+                    RowBox[{"{", RowBox[{"lag", ",", "1", ",", "20"}], "}"}]
+                   }
+                  ],
+                  "]"
+                 }
+                ],
+                ",",
+                "\[IndentingNewLine]",
+                "  ",
+                RowBox[{"Filling", "->", "Axis"}],
+                ",",
+                RowBox[
+                 {
+                  "PlotRange",
+                  "->",
+                  RowBox[
+                   {"{", RowBox[{RowBox[{"-", "0.2"}], ",", "0.2"}], "}"}
+                  ]
+                 }
+                ],
+                ",",
+                "\[IndentingNewLine]",
+                "  ",
+                RowBox[
+                 {"PlotLabel", "->", "\"Autocorrelation of Returns\""}
+                ],
+                ",",
+                RowBox[
+                 {
+                  "AxesLabel",
+                  "->",
+                  RowBox[{"{", RowBox[{"\"Lag\"", ",", "\"ACF\""}], "}"}]
+                 }
+                ],
+                ",",
+                RowBox[{"ImageSize", "->", "300"}]
+               }
+              ],
+              "]"
+             }
+            ]
+           }
+          ],
+          ";"
+         }
+        ],
+        "\[IndentingNewLine]",
+        "\[IndentingNewLine]",
+        RowBox[
+         {
+          RowBox[
+           {
+            "pResHist",
+            "=",
+            RowBox[
+             {
+              "Histogram",
+              "[",
+              RowBox[
+               {
+                "residuals",
+                ",",
+                "30",
+                ",",
+                "\"PDF\"",
+                ",",
+                "\[IndentingNewLine]",
+                "  ",
+                RowBox[{"PlotLabel", "->", "\"Residual Distribution\""}],
+                ",",
+                RowBox[
+                 {
+                  "ChartStyle",
+                  "->",
+                  RowBox[
+                   {
+                    "RGBColor",
+                    "[",
+                    RowBox[{"0.2", ",", "0.6", ",", "0.8"}],
+                    "]"
+                   }
+                  ]
+                 }
+                ],
+                ",",
+                RowBox[{"ImageSize", "->", "300"}]
+               }
+              ],
+              "]"
+             }
+            ]
+           }
+          ],
+          ";"
+         }
+        ],
+        "\[IndentingNewLine]",
+        "\[IndentingNewLine]",
+        RowBox[
+         {
+          "GraphicsRow",
+          "[",
+          RowBox[
+           {
+            RowBox[{"{", RowBox[{"pACF", ",", "pResHist"}], "}"}],
+            ",",
+            RowBox[{"ImageSize", "->", "600"}]
+           }
+          ],
+          "]"
+         }
+        ]
+       }
+      ]
+     }
+    ]
+   ],
+   "Input"
+  ],
+  Cell[
+   "Using the fitted ARMA model, we generate multi-step return forecasts and reconstruct the price trajectory: ",
+   "CodeText"
+  ],
+  Cell[
+   BoxData[
+    RowBox[
+     {
+      RowBox[
+       {
+        "(*",
+        " ",
+        RowBox[
+         {
+          "Multi",
+          "-",
+          RowBox[
+           {
+            "step",
+            " ",
+            "forward",
+            " ",
+            "forecasting",
+            " ",
+            "of",
+            " ",
+            "returns"
+           }
+          ]
+         }
+        ],
+        " ",
+        "*)"
+       }
+      ],
+      "\[IndentingNewLine]",
+      RowBox[
+       {
+        RowBox[
+         {
+          RowBox[
+           {
+            "forecastReturns",
+            "=",
+            RowBox[
+             {
+              "Normal",
+              "[",
+              RowBox[
+               {
+                RowBox[
+                 {
+                  "TimeSeriesForecast",
+                  "[",
+                  RowBox[{"tsmARMA", ",", RowBox[{"{", "horizon", "}"}]}],
+                  "]"
+                 }
+                ],
+                "[",
+                "\"Values\"",
+                "]"
+               }
+              ],
+              "]"
+             }
+            ]
+           }
+          ],
+          ";"
+         }
+        ],
+        "\[IndentingNewLine]",
+        "\[IndentingNewLine]",
+        RowBox[
+         {
+          "(*",
+          " ",
+          RowBox[
+           {
+            "Reconstruct",
+            " ",
+            "expected",
+            " ",
+            "price",
+            " ",
+            "path",
+            " ",
+            "from",
+            " ",
+            "cumulative",
+            " ",
+            "forecasted",
+            " ",
+            "returns"
+           }
+          ],
+          " ",
+          "*)"
+         }
+        ],
+        "\[IndentingNewLine]",
+        RowBox[
+         {
+          RowBox[
+           {"pLast", "=", RowBox[{"Last", "[", "trainPrices", "]"}]}
+          ],
+          ";"
+         }
+        ],
+        "\[IndentingNewLine]",
+        RowBox[
+         {
+          RowBox[
+           {
+            "armaPricePath",
+            "=",
+            RowBox[
+             {
+              "pLast",
+              "*",
+              RowBox[
+               {
+                "Exp",
+                "[",
+                RowBox[{"Accumulate", "[", "forecastReturns", "]"}],
+                "]"
+               }
+              ]
+             }
+            ]
+           }
+          ],
+          ";"
+         }
+        ],
+        "\[IndentingNewLine]",
+        "\[IndentingNewLine]",
+        RowBox[
+         {
+          "(*",
+          " ",
+          RowBox[
+           {
+            RowBox[
+             {
+              "Compute",
+              " ",
+              "expected",
+              " ",
+              "average",
+              " ",
+              "future",
+              " ",
+              "price",
+              " ",
+              "over",
+              " ",
+              "the",
+              " ",
+              "20"
+             }
+            ],
+            "-",
+            RowBox[{"day", " ", "horizon"}]
+           }
+          ],
+          " ",
+          "*)"
+         }
+        ],
+        "\[IndentingNewLine]",
+        RowBox[
+         {
+          RowBox[
+           {
+            "armaAvgPrice",
+            "=",
+            RowBox[{"Mean", "[", "armaPricePath", "]"}]
+           }
+          ],
+          ";"
+         }
+        ],
+        "\[IndentingNewLine]",
+        RowBox[
+         {
+          RowBox[
+           {
+            "Print",
+            "[",
+            RowBox[
+             {
+              "\"ARMA Expected Average Future Price: $\"",
+              ",",
+              RowBox[
+               {
+                "NumberForm",
+                "[",
+                RowBox[
+                 {
+                  "armaAvgPrice",
+                  ",",
+                  RowBox[{"{", RowBox[{"6", ",", "2"}], "}"}]
+                 }
+                ],
+                "]"
+               }
+              ]
+             }
+            ],
+            "]"
+           }
+          ],
+          ";"
+         }
+        ]
+       }
+      ]
+     }
+    ]
+   ],
+   "Input"
+  ],
+  Cell[
+   BoxData[
+    TagBox[
+     GridBox[
+      {
+       {TemplateBox[{0}, "Spacer1"]},
+       {TemplateBox[{0}, "Spacer1"]}
+      },
+      AutoDelete -> False,
+      FrameStyle ->
+       Directive[
+        LightDarkSwitched[GrayLevel[0.8], GrayLevel[0.48678]],
+        AbsoluteThickness[1]
+       ],
+      GridBoxDividers -> {
+       "Columns" -> {False, {True}, False},
+       "Rows" -> {False, {True}, False}
+      },
+      GridBoxItemSize -> {"Columns" -> {{Fit}}, "Rows" -> {{Automatic}}}
+     ],
+     "Grid"
+    ]
+   ],
+   "Text",
+   "MarkdownDelimiter",
+   ShowStringCharacters -> False,
+   Background -> None
+  ],
+  Cell[
+   "4. Kalman Filtering for Dynamic Trend Extraction",
+   "Section"
+  ],
+  Cell[
+   TextData[
+    {
+     "We implement a 2D Local Linear Trend Kalman Filter in Wolfram Language. The state vector x",
+     StyleBox["t = [mu", FontSlant -> Italic],
+     "t, beta_t]^T represents the true unobserved price trend level and its dynamic velocity (slope in $/day). The filter performs recursive Bayesian prediction and measurement updates, eliminating the phase lag inherent in standard moving averages. "
+    }
+   ],
+   "Text"
+  ],
+  Cell[
+   BoxData[
+    RowBox[
+     {
+      RowBox[
+       {
+        "(*",
+        " ",
+        RowBox[
+         {
+          "Pure",
+          " ",
+          "Wolfram",
+          " ",
+          "Language",
+          " ",
+          "Implementation",
+          " ",
+          "of",
+          " ",
+          "Local",
+          " ",
+          "Linear",
+          " ",
+          "Trend",
+          " ",
+          "Kalman",
+          " ",
+          "Filter"
+         }
+        ],
+        " ",
+        "*)"
+       }
+      ],
+      "\[IndentingNewLine]",
+      RowBox[
+       {
+        RowBox[
+         {
+          RowBox[
+           {
+            "kalmanTrendFilter",
+            "[",
+            RowBox[
+             {
+              "data_List",
+              ",",
+              RowBox[{"qLevel_", "?", "NumericQ"}],
+              ",",
+              RowBox[{"qSlope_", "?", "NumericQ"}],
+              ",",
+              RowBox[{"rNoise_", "?", "NumericQ"}]
+             }
+            ],
+            "]"
+           }
+          ],
+          ":=",
+          "\[IndentingNewLine]",
+          " ",
+          RowBox[
+           {
+            "Module",
+            "[",
+            RowBox[
+             {
+              RowBox[
+               {
+                "{",
+                RowBox[
+                 {
+                  RowBox[{"n", "=", RowBox[{"Length", "[", "data", "]"}]}],
+                  ",",
+                  "mu",
+                  ",",
+                  "beta",
+                  ",",
+                  "p11",
+                  ",",
+                  "p12",
+                  ",",
+                  "p22",
+                  ",",
+                  "k1",
+                  ",",
+                  "k2",
+                  ",",
+                  "y",
+                  ",",
+                  "v",
+                  ",",
+                  "f",
+                  ",",
+                  "\[IndentingNewLine]",
+                  "         ",
+                  "filteredMu",
+                  ",",
+                  "filteredBeta"
+                 }
+                ],
+                "}"
+               }
+              ],
+              ",",
+              "\[IndentingNewLine]",
+              "  ",
+              RowBox[
+               {
+                "(*",
+                " ",
+                RowBox[
+                 {
+                  "Initialize",
+                  " ",
+                  "state",
+                  " ",
+                  "with",
+                  " ",
+                  "first",
+                  " ",
+                  "observed",
+                  " ",
+                  "price",
+                  " ",
+                  "and",
+                  " ",
+                  "zero",
+                  " ",
+                  "slope"
+                 }
+                ],
+                " ",
+                "*)"
+               }
+              ],
+              "\[IndentingNewLine]",
+              "  ",
+              RowBox[
+               {
+                RowBox[
+                 {
+                  "mu",
+                  "=",
+                  RowBox[{"data", "[", RowBox[{"[", "1", "]"}], "]"}]
+                 }
+                ],
+                ";",
+                "\[IndentingNewLine]",
+                "  ",
+                RowBox[{"beta", "=", "0.0"}],
+                ";",
+                "\[IndentingNewLine]",
+                "  ",
+                RowBox[
+                 {
+                  "(*",
+                  " ",
+                  RowBox[
+                   {
+                    "Initial",
+                    " ",
+                    "state",
+                    " ",
+                    "uncertainty",
+                    " ",
+                    "covariance"
+                   }
+                  ],
+                  " ",
+                  "*)"
+                 }
+                ],
+                "\[IndentingNewLine]",
+                "  ",
+                RowBox[{"p11", "=", "1000.0"}],
+                ";",
+                " ",
+                RowBox[{"p12", "=", "0.0"}],
+                ";",
+                " ",
+                RowBox[{"p22", "=", "100.0"}],
+                ";",
+                "\[IndentingNewLine]",
+                "  ",
+                "\[IndentingNewLine]",
+                "  ",
+                RowBox[
+                 {
+                  "filteredMu",
+                  "=",
+                  RowBox[
+                   {"ConstantArray", "[", RowBox[{"0.0", ",", "n"}], "]"}
+                  ]
+                 }
+                ],
+                ";",
+                "\[IndentingNewLine]",
+                "  ",
+                RowBox[
+                 {
+                  "filteredBeta",
+                  "=",
+                  RowBox[
+                   {"ConstantArray", "[", RowBox[{"0.0", ",", "n"}], "]"}
+                  ]
+                 }
+                ],
+                ";",
+                "\[IndentingNewLine]",
+                "  ",
+                "\[IndentingNewLine]",
+                "  ",
+                RowBox[
+                 {
+                  "Do",
+                  "[",
+                  "\[IndentingNewLine]",
+                  "    ",
+                  RowBox[
+                   {
+                    RowBox[
+                     {
+                      RowBox[
+                       {
+                        "y",
+                        "=",
+                        RowBox[{"data", "[", RowBox[{"[", "t", "]"}], "]"}]
+                       }
+                      ],
+                      ";",
+                      "\[IndentingNewLine]",
+                      "    ",
+                      "\[IndentingNewLine]",
+                      "    ",
+                      RowBox[
+                       {
+                        "(*",
+                        " ",
+                        RowBox[{"1.", " ", "Predict", " ", "Step"}],
+                        " ",
+                        "*)"
+                       }
+                      ],
+                      "\[IndentingNewLine]",
+                      "    ",
+                      RowBox[{"mu", "=", RowBox[{"mu", "+", "beta"}]}],
+                      ";",
+                      "\[IndentingNewLine]",
+                      "    ",
+                      RowBox[
+                       {
+                        "p11",
+                        "=",
+                        RowBox[
+                         {
+                          "p11",
+                          "+",
+                          RowBox[{"2.0", "*", "p12"}],
+                          "+",
+                          "p22",
+                          "+",
+                          "qLevel"
+                         }
+                        ]
+                       }
+                      ],
+                      ";",
+                      "\[IndentingNewLine]",
+                      "    ",
+                      RowBox[{"p12", "=", RowBox[{"p12", "+", "p22"}]}],
+                      ";",
+                      "\[IndentingNewLine]",
+                      "    ",
+                      RowBox[{"p22", "=", RowBox[{"p22", "+", "qSlope"}]}],
+                      ";",
+                      "\[IndentingNewLine]",
+                      "    ",
+                      "\[IndentingNewLine]",
+                      "    ",
+                      RowBox[
+                       {
+                        "(*",
+                        " ",
+                        RowBox[
+                         {"2.", " ", "Measurement", " ", "Update", " ", "Step"}
+                        ],
+                        " ",
+                        "*)"
+                       }
+                      ],
+                      "\[IndentingNewLine]",
+                      "    ",
+                      RowBox[{"v", "=", RowBox[{"y", "-", "mu"}]}],
+                      ";",
+                      "           ",
+                      RowBox[
+                       {
+                        "(*",
+                        " ",
+                        RowBox[{"Innovation", " ", "residual"}],
+                        " ",
+                        "*)"
+                       }
+                      ],
+                      "\[IndentingNewLine]",
+                      "    ",
+                      RowBox[{"f", "=", RowBox[{"p11", "+", "rNoise"}]}],
+                      ";",
+                      "     ",
+                      RowBox[
+                       {
+                        "(*",
+                        " ",
+                        RowBox[{"Innovation", " ", "variance"}],
+                        " ",
+                        "*)"
+                       }
+                      ],
+                      "\[IndentingNewLine]",
+                      "    ",
+                      RowBox[{"k1", "=", RowBox[{"p11", "/", "f"}]}],
+                      ";",
+                      "         ",
+                      RowBox[
+                       {
+                        "(*",
+                        " ",
+                        RowBox[{"Kalman", " ", "gain", " ", "for", " ", "level"}],
+                        " ",
+                        "*)"
+                       }
+                      ],
+                      "\[IndentingNewLine]",
+                      "    ",
+                      RowBox[{"k2", "=", RowBox[{"p12", "/", "f"}]}],
+                      ";",
+                      "         ",
+                      RowBox[
+                       {
+                        "(*",
+                        " ",
+                        RowBox[{"Kalman", " ", "gain", " ", "for", " ", "slope"}],
+                        " ",
+                        "*)"
+                       }
+                      ],
+                      "\[IndentingNewLine]",
+                      "    ",
+                      "\[IndentingNewLine]",
+                      "    ",
+                      RowBox[
+                       {"mu", "=", RowBox[{"mu", "+", RowBox[{"k1", "*", "v"}]}]}
+                      ],
+                      ";",
+                      "\[IndentingNewLine]",
+                      "    ",
+                      RowBox[
+                       {
+                        "beta",
+                        "=",
+                        RowBox[{"beta", "+", RowBox[{"k2", "*", "v"}]}]
+                       }
+                      ],
+                      ";",
+                      "\[IndentingNewLine]",
+                      "    ",
+                      "\[IndentingNewLine]",
+                      "    ",
+                      RowBox[
+                       {
+                        "(*",
+                        " ",
+                        RowBox[{"Covariance", " ", "update"}],
+                        " ",
+                        "*)"
+                       }
+                      ],
+                      "\[IndentingNewLine]",
+                      "    ",
+                      RowBox[
+                       {
+                        "p22",
+                        "=",
+                        RowBox[{"p22", "-", RowBox[{"k2", "*", "p12"}]}]
+                       }
+                      ],
+                      ";",
+                      "\[IndentingNewLine]",
+                      "    ",
+                      RowBox[
+                       {
+                        "p12",
+                        "=",
+                        RowBox[{"p12", "-", RowBox[{"k1", "*", "p12"}]}]
+                       }
+                      ],
+                      ";",
+                      "\[IndentingNewLine]",
+                      "    ",
+                      RowBox[
+                       {
+                        "p11",
+                        "=",
+                        RowBox[{"p11", "-", RowBox[{"k1", "*", "p11"}]}]
+                       }
+                      ],
+                      ";",
+                      "\[IndentingNewLine]",
+                      "    ",
+                      "\[IndentingNewLine]",
+                      "    ",
+                      RowBox[
+                       {
+                        RowBox[{"filteredMu", "[", RowBox[{"[", "t", "]"}], "]"}],
+                        "=",
+                        "mu"
+                       }
+                      ],
+                      ";",
+                      "\[IndentingNewLine]",
+                      "    ",
+                      RowBox[
+                       {
+                        RowBox[{"filteredBeta", "[", RowBox[{"[", "t", "]"}], "]"}],
+                        "=",
+                        "beta"
+                       }
+                      ],
+                      ";"
+                     }
+                    ],
+                    "\[IndentingNewLine]",
+                    "  ",
+                    ",",
+                    RowBox[{"{", RowBox[{"t", ",", "1", ",", "n"}], "}"}]
+                   }
+                  ],
+                  "]"
+                 }
+                ],
+                ";",
+                "\[IndentingNewLine]",
+                "  ",
+                "\[IndentingNewLine]",
+                "  ",
+                RowBox[
+                 {
+                  "<|",
+                  "\[IndentingNewLine]",
+                  "    ",
+                  RowBox[
+                   {
+                    RowBox[{"\"Trend\"", "->", "filteredMu"}],
+                    ",",
+                    "\[IndentingNewLine]",
+                    "    ",
+                    RowBox[{"\"Slope\"", "->", "filteredBeta"}],
+                    ",",
+                    "\[IndentingNewLine]",
+                    "    ",
+                    RowBox[
+                     {
+                      "\"FinalState\"",
+                      "->",
+                      RowBox[{"{", RowBox[{"mu", ",", "beta"}], "}"}]
+                     }
+                    ],
+                    ",",
+                    "\[IndentingNewLine]",
+                    "    ",
+                    RowBox[
+                     {
+                      "\"FinalCov\"",
+                      "->",
+                      RowBox[
+                       {
+                        "{",
+                        RowBox[
+                         {
+                          RowBox[{"{", RowBox[{"p11", ",", "p12"}], "}"}],
+                          ",",
+                          RowBox[{"{", RowBox[{"p12", ",", "p22"}], "}"}]
+                         }
+                        ],
+                        "}"
+                       }
+                      ]
+                     }
+                    ]
+                   }
+                  ],
+                  "\[IndentingNewLine]",
+                  "  ",
+                  "|>"
+                 }
+                ]
+               }
+              ]
+             }
+            ],
+            "\[IndentingNewLine]",
+            " ",
+            "]"
+           }
+          ]
+         }
+        ],
+        ";"
+       }
+      ]
+     }
+    ]
+   ],
+   "Input"
+  ],
+  Cell[
+   "We now run the filter on the in-sample stock prices: ",
+   "CodeText"
+  ],
+  Cell[
+   BoxData[
+    RowBox[
+     {
+      RowBox[
+       {
+        "(*",
+        " ",
+        RowBox[
+         {
+          RowBox[{"Filter", " ", "in"}],
+          "-",
+          RowBox[
+           {
+            "sample",
+            " ",
+            "training",
+            " ",
+            "prices",
+            " ",
+            "with",
+            " ",
+            "Local",
+            " ",
+            "Linear",
+            " ",
+            "Trend",
+            " ",
+            "Kalman",
+            " ",
+            "Filter"
+           }
+          ]
+         }
+        ],
+        " ",
+        "*)"
+       }
+      ],
+      "\[IndentingNewLine]",
+      RowBox[
+       {
+        "(*",
+        " ",
+        RowBox[
+         {
+          RowBox[
+           {
+            RowBox[{"Parameters", ":", " ", "qLevel"}],
+            " ",
+            "=",
+            " ",
+            "1.0"
+           }
+          ],
+          ",",
+          " ",
+          RowBox[{"qSlope", " ", "=", " ", "0.05"}],
+          ",",
+          " ",
+          RowBox[{"rNoise", " ", "=", " ", "5.0"}]
+         }
+        ],
+        " ",
+        "*)"
+       }
+      ],
+      "\[IndentingNewLine]",
+      RowBox[
+       {
+        RowBox[
+         {
+          RowBox[
+           {
+            "kfResults",
+            "=",
+            RowBox[
+             {
+              "kalmanTrendFilter",
+              "[",
+              RowBox[
+               {"trainPrices", ",", "1.0", ",", "0.05", ",", "5.0"}
+              ],
+              "]"
+             }
+            ]
+           }
+          ],
+          ";"
+         }
+        ],
+        "\[IndentingNewLine]",
+        "\[IndentingNewLine]",
+        RowBox[
+         {
+          RowBox[
+           {
+            "trendPath",
+            "=",
+            RowBox[{"kfResults", "[", "\"Trend\"", "]"}]
+           }
+          ],
+          ";"
+         }
+        ],
+        "\[IndentingNewLine]",
+        RowBox[
+         {
+          RowBox[
+           {
+            "slopePath",
+            "=",
+            RowBox[{"kfResults", "[", "\"Slope\"", "]"}]
+           }
+          ],
+          ";"
+         }
+        ],
+        "\[IndentingNewLine]",
+        RowBox[
+         {
+          RowBox[
+           {
+            "finalState",
+            "=",
+            RowBox[{"kfResults", "[", "\"FinalState\"", "]"}]
+           }
+          ],
+          ";"
+         }
+        ],
+        "\[IndentingNewLine]",
+        "\[IndentingNewLine]",
+        RowBox[
+         {
+          RowBox[
+           {"Print", "[", "\"Terminal Kalman Filter State:\"", "]"}
+          ],
+          ";"
+         }
+        ],
+        "\[IndentingNewLine]",
+        RowBox[
+         {
+          RowBox[
+           {
+            "Print",
+            "[",
+            RowBox[
+             {
+              "\"  Extracted Trend Level (mu): $\"",
+              ",",
+              RowBox[
+               {
+                "NumberForm",
+                "[",
+                RowBox[
+                 {
+                  RowBox[{"finalState", "[", RowBox[{"[", "1", "]"}], "]"}],
+                  ",",
+                  RowBox[{"{", RowBox[{"6", ",", "2"}], "}"}]
+                 }
+                ],
+                "]"
+               }
+              ]
+             }
+            ],
+            "]"
+           }
+          ],
+          ";"
+         }
+        ],
+        "\[IndentingNewLine]",
+        RowBox[
+         {
+          RowBox[
+           {
+            "Print",
+            "[",
+            RowBox[
+             {
+              "\"  Extracted Trend Velocity (beta): $\"",
+              ",",
+              RowBox[
+               {
+                "NumberForm",
+                "[",
+                RowBox[
+                 {
+                  RowBox[{"finalState", "[", RowBox[{"[", "2", "]"}], "]"}],
+                  ",",
+                  RowBox[{"{", RowBox[{"4", ",", "2"}], "}"}]
+                 }
+                ],
+                "]"
+               }
+              ],
+              ",",
+              "\" per trading day\""
+             }
+            ],
+            "]"
+           }
+          ],
+          ";"
+         }
+        ]
+       }
+      ]
+     }
+    ]
+   ],
+   "Input"
+  ],
+  Cell[
+   "To demonstrate the zero-lag characteristic of the Kalman filter, we compare it against a standard 20-day Simple Moving Average (SMA): ",
+   "CodeText"
+  ],
+  Cell[
+   BoxData[
+    RowBox[
+     {
+      RowBox[
+       {
+        "(*",
+        " ",
+        RowBox[
+         {
+          RowBox[{"Calculate", " ", "standard", " ", "20"}],
+          "-",
+          RowBox[
+           {
+            "day",
+            " ",
+            "Simple",
+            " ",
+            "Moving",
+            " ",
+            "Average",
+            " ",
+            RowBox[{"(", "SMA", ")"}],
+            " ",
+            "for",
+            " ",
+            "benchmark"
+           }
+          ]
+         }
+        ],
+        " ",
+        "*)"
+       }
+      ],
+      "\[IndentingNewLine]",
+      RowBox[
+       {
+        RowBox[
+         {
+          RowBox[
+           {
+            "sma20",
+            "=",
+            RowBox[
+             {
+              "MovingAverage",
+              "[",
+              RowBox[{"trainPrices", ",", "20"}],
+              "]"
+             }
+            ]
+           }
+          ],
+          ";"
+         }
+        ],
+        "\[IndentingNewLine]",
+        "\[IndentingNewLine]",
+        RowBox[
+         {
+          "(*",
+          " ",
+          RowBox[
+           {
+            "Plot",
+            ":",
+            " ",
+            RowBox[
+             {
+              RowBox[
+               {
+                "Price",
+                " ",
+                RowBox[{"vs", ".", " ", "Kalman"}],
+                " ",
+                "Trend",
+                " ",
+                RowBox[{"vs", ".", " ", "20"}]
+               }
+              ],
+              "-",
+              RowBox[{"day", " ", "SMA"}]
+             }
+            ]
+           }
+          ],
+          " ",
+          "*)"
+         }
+        ],
+        "\[IndentingNewLine]",
+        RowBox[
+         {
+          RowBox[
+           {
+            "pCompare",
+            "=",
+            RowBox[
+             {
+              "ListLinePlot",
+              "[",
+              RowBox[
+               {
+                RowBox[
+                 {
+                  "{",
+                  "\[IndentingNewLine]",
+                  "    ",
+                  RowBox[
+                   {
+                    "trainPrices",
+                    ",",
+                    "\[IndentingNewLine]",
+                    "    ",
+                    "trendPath",
+                    ",",
+                    "\[IndentingNewLine]",
+                    "    ",
+                    RowBox[
+                     {
+                      "PadLeft",
+                      "[",
+                      RowBox[
+                       {
+                        "sma20",
+                        ",",
+                        RowBox[{"Length", "[", "trainPrices", "]"}],
+                        ",",
+                        "Null"
+                       }
+                      ],
+                      "]"
+                     }
+                    ]
+                   }
+                  ],
+                  "\[IndentingNewLine]",
+                  "  ",
+                  "}"
+                 }
+                ],
+                ",",
+                "\[IndentingNewLine]",
+                "  ",
+                RowBox[
+                 {
+                  "PlotStyle",
+                  "->",
+                  RowBox[
+                   {
+                    "{",
+                    "\[IndentingNewLine]",
+                    "    ",
+                    RowBox[
+                     {
+                      RowBox[
+                       {
+                        "Directive",
+                        "[",
+                        RowBox[
+                         {"Thin", ",", RowBox[{"GrayLevel", "[", "0.7", "]"}]}
+                        ],
+                        "]"
+                       }
+                      ],
+                      ",",
+                      "\[IndentingNewLine]",
+                      "    ",
+                      RowBox[
+                       {
+                        "Directive",
+                        "[",
+                        RowBox[
+                         {
+                          "Thick",
+                          ",",
+                          RowBox[
+                           {
+                            "RGBColor",
+                            "[",
+                            RowBox[{"0.1", ",", "0.4", ",", "0.85"}],
+                            "]"
+                           }
+                          ]
+                         }
+                        ],
+                        "]"
+                       }
+                      ],
+                      ",",
+                      "\[IndentingNewLine]",
+                      "    ",
+                      RowBox[
+                       {
+                        "Directive",
+                        "[",
+                        RowBox[
+                         {
+                          "Dashed",
+                          ",",
+                          "Thick",
+                          ",",
+                          RowBox[
+                           {
+                            "RGBColor",
+                            "[",
+                            RowBox[{"0.85", ",", "0.45", ",", "0.1"}],
+                            "]"
+                           }
+                          ]
+                         }
+                        ],
+                        "]"
+                       }
+                      ]
+                     }
+                    ],
+                    "\[IndentingNewLine]",
+                    "  ",
+                    "}"
+                   }
+                  ]
+                 }
+                ],
+                ",",
+                "\[IndentingNewLine]",
+                "  ",
+                RowBox[
+                 {
+                  "PlotLegends",
+                  "->",
+                  RowBox[
+                   {
+                    "Placed",
+                    "[",
+                    RowBox[
+                     {
+                      RowBox[
+                       {
+                        "{",
+                        RowBox[
+                         {
+                          "\"Daily Close\"",
+                          ",",
+                          "\"Kalman Trend (Level)\"",
+                          ",",
+                          "\"20-day SMA\""
+                         }
+                        ],
+                        "}"
+                       }
+                      ],
+                      ",",
+                      "Below"
+                     }
+                    ],
+                    "]"
+                   }
+                  ]
+                 }
+                ],
+                ",",
+                "\[IndentingNewLine]",
+                "  ",
+                RowBox[
+                 {
+                  "PlotLabel",
+                  "->",
+                  RowBox[
+                   {
+                    "Style",
+                    "[",
+                    RowBox[
+                     {
+                      "\"In-Sample Trend Extraction: Kalman Filter vs. 20-day SMA\"",
+                      ",",
+                      "Bold",
+                      ",",
+                      "14"
+                     }
+                    ],
+                    "]"
+                   }
+                  ]
+                 }
+                ],
+                ",",
+                "\[IndentingNewLine]",
+                "  ",
+                RowBox[
+                 {
+                  "AxesLabel",
+                  "->",
+                  RowBox[
+                   {
+                    "{",
+                    RowBox[{"\"Trading Day\"", ",", "\"Price ($)\""}],
+                    "}"
+                   }
+                  ]
+                 }
+                ],
+                ",",
+                "\[IndentingNewLine]",
+                "  ",
+                RowBox[{"GridLines", "->", "Automatic"}],
+                ",",
+                RowBox[{"ImageSize", "->", "550"}]
+               }
+              ],
+              "]"
+             }
+            ]
+           }
+          ],
+          ";"
+         }
+        ],
+        "\[IndentingNewLine]",
+        "\[IndentingNewLine]",
+        RowBox[
+         {
+          RowBox[
+           {
+            "pSlope",
+            "=",
+            RowBox[
+             {
+              "ListLinePlot",
+              "[",
+              RowBox[
+               {
+                "slopePath",
+                ",",
+                "\[IndentingNewLine]",
+                "  ",
+                RowBox[
+                 {
+                  "PlotStyle",
+                  "->",
+                  RowBox[
+                   {
+                    "Directive",
+                    "[",
+                    RowBox[
+                     {
+                      "Thick",
+                      ",",
+                      RowBox[
+                       {
+                        "RGBColor",
+                        "[",
+                        RowBox[{"0.2", ",", "0.65", ",", "0.3"}],
+                        "]"
+                       }
+                      ]
+                     }
+                    ],
+                    "]"
+                   }
+                  ]
+                 }
+                ],
+                ",",
+                "\[IndentingNewLine]",
+                "  ",
+                RowBox[
+                 {
+                  "PlotLabel",
+                  "->",
+                  RowBox[
+                   {
+                    "Style",
+                    "[",
+                    RowBox[
+                     {
+                      "\"Kalman Dynamic Trend Velocity (Slope: $/day)\"",
+                      ",",
+                      "Bold",
+                      ",",
+                      "14"
+                     }
+                    ],
+                    "]"
+                   }
+                  ]
+                 }
+                ],
+                ",",
+                "\[IndentingNewLine]",
+                "  ",
+                RowBox[
+                 {
+                  "AxesLabel",
+                  "->",
+                  RowBox[
+                   {
+                    "{",
+                    RowBox[{"\"Trading Day\"", ",", "\"Slope ($/day)\""}],
+                    "}"
+                   }
+                  ]
+                 }
+                ],
+                ",",
+                "\[IndentingNewLine]",
+                "  ",
+                RowBox[{"Filling", "->", "Axis"}],
+                ",",
+                RowBox[{"GridLines", "->", "Automatic"}],
+                ",",
+                RowBox[{"ImageSize", "->", "550"}]
+               }
+              ],
+              "]"
+             }
+            ]
+           }
+          ],
+          ";"
+         }
+        ],
+        "\[IndentingNewLine]",
+        "\[IndentingNewLine]",
+        RowBox[
+         {
+          "GraphicsColumn",
+          "[",
+          RowBox[
+           {
+            RowBox[{"{", RowBox[{"pCompare", ",", "pSlope"}], "}"}],
+            ",",
+            RowBox[{"ImageSize", "->", "550"}]
+           }
+          ],
+          "]"
+         }
+        ]
+       }
+      ]
+     }
+    ]
+   ],
+   "Input"
+  ],
+  Cell[
+   "We now extrapolate the Kalman trend forward into the test period: ",
+   "CodeText"
+  ],
+  Cell[
+   BoxData[
+    RowBox[
+     {
+      RowBox[
+       {
+        "(*",
+        " ",
+        RowBox[
+         {
+          "Forward",
+          " ",
+          "price",
+          " ",
+          "path",
+          " ",
+          "extrapolation",
+          " ",
+          "from",
+          " ",
+          "terminal",
+          " ",
+          "Kalman",
+          " ",
+          "state"
+         }
+        ],
+        " ",
+        "*)"
+       }
+      ],
+      "\[IndentingNewLine]",
+      RowBox[
+       {
+        RowBox[
+         {
+          RowBox[
+           {
+            "mu0",
+            "=",
+            RowBox[{"finalState", "[", RowBox[{"[", "1", "]"}], "]"}]
+           }
+          ],
+          ";"
+         }
+        ],
+        "\[IndentingNewLine]",
+        RowBox[
+         {
+          RowBox[
+           {
+            "beta0",
+            "=",
+            RowBox[{"finalState", "[", RowBox[{"[", "2", "]"}], "]"}]
+           }
+          ],
+          ";"
+         }
+        ],
+        "\[IndentingNewLine]",
+        RowBox[
+         {
+          RowBox[
+           {
+            "kalmanPricePath",
+            "=",
+            RowBox[
+             {
+              "Table",
+              "[",
+              RowBox[
+               {
+                RowBox[{"mu0", "+", RowBox[{"k", "*", "beta0"}]}],
+                ",",
+                RowBox[{"{", RowBox[{"k", ",", "1", ",", "horizon"}], "}"}]
+               }
+              ],
+              "]"
+             }
+            ]
+           }
+          ],
+          ";"
+         }
+        ],
+        "\[IndentingNewLine]",
+        "\[IndentingNewLine]",
+        RowBox[
+         {
+          "(*",
+          " ",
+          RowBox[
+           {
+            "Analytical",
+            " ",
+            "expected",
+            " ",
+            "average",
+            " ",
+            "future",
+            " ",
+            "price",
+            " ",
+            "over",
+            " ",
+            "horizon",
+            " ",
+            "H"
+           }
+          ],
+          " ",
+          "*)"
+         }
+        ],
+        "\[IndentingNewLine]",
+        RowBox[
+         {
+          RowBox[
+           {
+            "kalmanAvgPrice",
+            "=",
+            RowBox[
+             {
+              "mu0",
+              "+",
+              RowBox[
+               {
+                RowBox[
+                 {
+                  "(",
+                  RowBox[
+                   {
+                    RowBox[{"(", RowBox[{"horizon", "+", "1"}], ")"}],
+                    "/",
+                    "2.0"
+                   }
+                  ],
+                  ")"
+                 }
+                ],
+                "*",
+                "beta0"
+               }
+              ]
+             }
+            ]
+           }
+          ],
+          ";"
+         }
+        ],
+        "\[IndentingNewLine]",
+        RowBox[
+         {
+          RowBox[
+           {
+            "Print",
+            "[",
+            RowBox[
+             {
+              "\"Kalman Expected Average Future Price: $\"",
+              ",",
+              RowBox[
+               {
+                "NumberForm",
+                "[",
+                RowBox[
+                 {
+                  "kalmanAvgPrice",
+                  ",",
+                  RowBox[{"{", RowBox[{"6", ",", "2"}], "}"}]
+                 }
+                ],
+                "]"
+               }
+              ]
+             }
+            ],
+            "]"
+           }
+          ],
+          ";"
+         }
+        ]
+       }
+      ]
+     }
+    ]
+   ],
+   "Input"
+  ],
+  Cell[
+   BoxData[
+    TagBox[
+     GridBox[
+      {
+       {TemplateBox[{0}, "Spacer1"]},
+       {TemplateBox[{0}, "Spacer1"]}
+      },
+      AutoDelete -> False,
+      FrameStyle ->
+       Directive[
+        LightDarkSwitched[GrayLevel[0.8], GrayLevel[0.48678]],
+        AbsoluteThickness[1]
+       ],
+      GridBoxDividers -> {
+       "Columns" -> {False, {True}, False},
+       "Rows" -> {False, {True}, False}
+      },
+      GridBoxItemSize -> {"Columns" -> {{Fit}}, "Rows" -> {{Automatic}}}
+     ],
+     "Grid"
+    ]
+   ],
+   "Text",
+   "MarkdownDelimiter",
+   ShowStringCharacters -> False,
+   Background -> None
+  ],
+  Cell[
+   "5. Out-of-Sample Performance Comparison (Single Window)",
+   "Section"
+  ],
+  Cell[
+   "We compare the ARMA and Kalman Filter forecasts against the actual realized out-of-sample stock prices over the 20-day test horizon. We also include the Naive Random Walk Benchmark (where future expected price equals the last observed price P_T). ",
+   "Text"
+  ],
+  Cell[
+   BoxData[
+    RowBox[
+     {
+      RowBox[
+       {
+        "(*",
+        " ",
+        RowBox[
+         {
+          "Compute",
+          " ",
+          "realized",
+          " ",
+          "metrics",
+          " ",
+          "and",
+          " ",
+          "benchmark"
+         }
+        ],
+        " ",
+        "*)"
+       }
+      ],
+      "\[IndentingNewLine]",
+      RowBox[
+       {
+        RowBox[
+         {
+          RowBox[
+           {
+            "actualAvgPrice",
+            "=",
+            RowBox[{"Mean", "[", "testPrices", "]"}]
+           }
+          ],
+          ";"
+         }
+        ],
+        "\[IndentingNewLine]",
+        RowBox[{RowBox[{"naiveAvgPrice", "=", "pLast"}], ";"}],
+        "\[IndentingNewLine]",
+        RowBox[
+         {
+          RowBox[
+           {
+            "naivePricePath",
+            "=",
+            RowBox[
+             {
+              "ConstantArray",
+              "[",
+              RowBox[{"pLast", ",", "horizon"}],
+              "]"
+             }
+            ]
+           }
+          ],
+          ";"
+         }
+        ],
+        "\[IndentingNewLine]",
+        "\[IndentingNewLine]",
+        RowBox[
+         {
+          "(*",
+          " ",
+          RowBox[
+           {
+            "Percentage",
+            " ",
+            "errors",
+            " ",
+            "on",
+            " ",
+            "the",
+            " ",
+            "expected",
+            " ",
+            "average",
+            " ",
+            "price"
+           }
+          ],
+          " ",
+          "*)"
+         }
+        ],
+        "\[IndentingNewLine]",
+        RowBox[
+         {
+          RowBox[
+           {
+            "armaAvgErrPct",
+            "=",
+            RowBox[
+             {
+              RowBox[
+               {
+                RowBox[
+                 {
+                  "Abs",
+                  "[",
+                  RowBox[{"armaAvgPrice", "-", "actualAvgPrice"}],
+                  "]"
+                 }
+                ],
+                "/",
+                "actualAvgPrice"
+               }
+              ],
+              "*",
+              "100.0"
+             }
+            ]
+           }
+          ],
+          ";"
+         }
+        ],
+        "\[IndentingNewLine]",
+        RowBox[
+         {
+          RowBox[
+           {
+            "kalmanAvgErrPct",
+            "=",
+            RowBox[
+             {
+              RowBox[
+               {
+                RowBox[
+                 {
+                  "Abs",
+                  "[",
+                  RowBox[{"kalmanAvgPrice", "-", "actualAvgPrice"}],
+                  "]"
+                 }
+                ],
+                "/",
+                "actualAvgPrice"
+               }
+              ],
+              "*",
+              "100.0"
+             }
+            ]
+           }
+          ],
+          ";"
+         }
+        ],
+        "\[IndentingNewLine]",
+        RowBox[
+         {
+          RowBox[
+           {
+            "naiveAvgErrPct",
+            "=",
+            RowBox[
+             {
+              RowBox[
+               {
+                RowBox[
+                 {
+                  "Abs",
+                  "[",
+                  RowBox[{"naiveAvgPrice", "-", "actualAvgPrice"}],
+                  "]"
+                 }
+                ],
+                "/",
+                "actualAvgPrice"
+               }
+              ],
+              "*",
+              "100.0"
+             }
+            ]
+           }
+          ],
+          ";"
+         }
+        ],
+        "\[IndentingNewLine]",
+        "\[IndentingNewLine]",
+        RowBox[
+         {
+          "(*",
+          " ",
+          RowBox[
+           {
+            "Path",
+            "-",
+            RowBox[
+             {
+              "wise",
+              " ",
+              "Mean",
+              " ",
+              "Absolute",
+              " ",
+              "Error",
+              " ",
+              RowBox[{"(", "MAE", ")"}],
+              " ",
+              "and",
+              " ",
+              "Root",
+              " ",
+              "Mean",
+              " ",
+              "Squared",
+              " ",
+              "Error",
+              " ",
+              RowBox[{"(", "RMSE", ")"}]
+             }
+            ]
+           }
+          ],
+          " ",
+          "*)"
+         }
+        ],
+        "\[IndentingNewLine]",
+        RowBox[
+         {
+          RowBox[
+           {
+            RowBox[
+             {"calcMAE", "[", RowBox[{"act_", ",", "pred_"}], "]"}
+            ],
+            ":=",
+            RowBox[
+             {
+              "Mean",
+              "[",
+              RowBox[{"Abs", "[", RowBox[{"act", "-", "pred"}], "]"}],
+              "]"
+             }
+            ]
+           }
+          ],
+          ";"
+         }
+        ],
+        "\[IndentingNewLine]",
+        RowBox[
+         {
+          RowBox[
+           {
+            RowBox[
+             {"calcRMSE", "[", RowBox[{"act_", ",", "pred_"}], "]"}
+            ],
+            ":=",
+            RowBox[
+             {
+              "Sqrt",
+              "[",
+              RowBox[
+               {
+                "Mean",
+                "[",
+                RowBox[
+                 {
+                  RowBox[{"(", RowBox[{"act", "-", "pred"}], ")"}],
+                  "^",
+                  "2"
+                 }
+                ],
+                "]"
+               }
+              ],
+              "]"
+             }
+            ]
+           }
+          ],
+          ";"
+         }
+        ],
+        "\[IndentingNewLine]",
+        "\[IndentingNewLine]",
+        RowBox[
+         {
+          RowBox[
+           {
+            "armaMAE",
+            "=",
+            RowBox[
+             {
+              "calcMAE",
+              "[",
+              RowBox[{"testPrices", ",", "armaPricePath"}],
+              "]"
+             }
+            ]
+           }
+          ],
+          ";"
+         }
+        ],
+        "\[IndentingNewLine]",
+        RowBox[
+         {
+          RowBox[
+           {
+            "kalmanMAE",
+            "=",
+            RowBox[
+             {
+              "calcMAE",
+              "[",
+              RowBox[{"testPrices", ",", "kalmanPricePath"}],
+              "]"
+             }
+            ]
+           }
+          ],
+          ";"
+         }
+        ],
+        "\[IndentingNewLine]",
+        RowBox[
+         {
+          RowBox[
+           {
+            "naiveMAE",
+            "=",
+            RowBox[
+             {
+              "calcMAE",
+              "[",
+              RowBox[{"testPrices", ",", "naivePricePath"}],
+              "]"
+             }
+            ]
+           }
+          ],
+          ";"
+         }
+        ],
+        "\[IndentingNewLine]",
+        "\[IndentingNewLine]",
+        RowBox[
+         {
+          RowBox[
+           {
+            "armaRMSE",
+            "=",
+            RowBox[
+             {
+              "calcRMSE",
+              "[",
+              RowBox[{"testPrices", ",", "armaPricePath"}],
+              "]"
+             }
+            ]
+           }
+          ],
+          ";"
+         }
+        ],
+        "\[IndentingNewLine]",
+        RowBox[
+         {
+          RowBox[
+           {
+            "kalmanRMSE",
+            "=",
+            RowBox[
+             {
+              "calcRMSE",
+              "[",
+              RowBox[{"testPrices", ",", "kalmanPricePath"}],
+              "]"
+             }
+            ]
+           }
+          ],
+          ";"
+         }
+        ],
+        "\[IndentingNewLine]",
+        RowBox[
+         {
+          RowBox[
+           {
+            "naiveRMSE",
+            "=",
+            RowBox[
+             {
+              "calcRMSE",
+              "[",
+              RowBox[{"testPrices", ",", "naivePricePath"}],
+              "]"
+             }
+            ]
+           }
+          ],
+          ";"
+         }
+        ]
+       }
+      ]
+     }
+    ]
+   ],
+   "Input"
+  ],
+  Cell[
+   "We format and display the comparison table: ",
+   "CodeText"
+  ],
+  Cell[
+   BoxData[
+    RowBox[
+     {
+      RowBox[
+       {
+        "(*",
+        " ",
+        RowBox[
+         {
+          "Display",
+          " ",
+          "Performance",
+          " ",
+          "Comparison",
+          " ",
+          "Table"
+         }
+        ],
+        " ",
+        "*)"
+       }
+      ],
+      "\[IndentingNewLine]",
+      RowBox[
+       {
+        "Grid",
+        "[",
+        RowBox[
+         {
+          RowBox[
+           {
+            "{",
+            "\[IndentingNewLine]",
+            "  ",
+            RowBox[
+             {
+              RowBox[
+               {
+                "{",
+                RowBox[
+                 {
+                  "\"Metric\"",
+                  ",",
+                  "\"Actual Realized\"",
+                  ",",
+                  "\"ARMA Model\"",
+                  ",",
+                  "\"Kalman Trend Filter\"",
+                  ",",
+                  "\"Naive (Random Walk)\""
+                 }
+                ],
+                "}"
+               }
+              ],
+              ",",
+              "\[IndentingNewLine]",
+              "  ",
+              RowBox[
+               {
+                "{",
+                RowBox[
+                 {
+                  "\"Expected Average Price ($)\"",
+                  ",",
+                  "\[IndentingNewLine]",
+                  "   ",
+                  RowBox[
+                   {
+                    "NumberForm",
+                    "[",
+                    RowBox[
+                     {
+                      "actualAvgPrice",
+                      ",",
+                      RowBox[{"{", RowBox[{"6", ",", "2"}], "}"}]
+                     }
+                    ],
+                    "]"
+                   }
+                  ],
+                  ",",
+                  "\[IndentingNewLine]",
+                  "   ",
+                  RowBox[
+                   {
+                    "NumberForm",
+                    "[",
+                    RowBox[
+                     {
+                      "armaAvgPrice",
+                      ",",
+                      RowBox[{"{", RowBox[{"6", ",", "2"}], "}"}]
+                     }
+                    ],
+                    "]"
+                   }
+                  ],
+                  ",",
+                  "\[IndentingNewLine]",
+                  "   ",
+                  RowBox[
+                   {
+                    "NumberForm",
+                    "[",
+                    RowBox[
+                     {
+                      "kalmanAvgPrice",
+                      ",",
+                      RowBox[{"{", RowBox[{"6", ",", "2"}], "}"}]
+                     }
+                    ],
+                    "]"
+                   }
+                  ],
+                  ",",
+                  "\[IndentingNewLine]",
+                  "   ",
+                  RowBox[
+                   {
+                    "NumberForm",
+                    "[",
+                    RowBox[
+                     {
+                      "naiveAvgPrice",
+                      ",",
+                      RowBox[{"{", RowBox[{"6", ",", "2"}], "}"}]
+                     }
+                    ],
+                    "]"
+                   }
+                  ]
+                 }
+                ],
+                "}"
+               }
+              ],
+              ",",
+              "\[IndentingNewLine]",
+              "  ",
+              RowBox[
+               {
+                "{",
+                RowBox[
+                 {
+                  "\"Average Price Error ($)\"",
+                  ",",
+                  "\[IndentingNewLine]",
+                  "   ",
+                  "\"$0.00\"",
+                  ",",
+                  "\[IndentingNewLine]",
+                  "   ",
+                  RowBox[
+                   {
+                    "NumberForm",
+                    "[",
+                    RowBox[
+                     {
+                      RowBox[{"armaAvgPrice", "-", "actualAvgPrice"}],
+                      ",",
+                      RowBox[{"{", RowBox[{"4", ",", "2"}], "}"}]
+                     }
+                    ],
+                    "]"
+                   }
+                  ],
+                  ",",
+                  "\[IndentingNewLine]",
+                  "   ",
+                  RowBox[
+                   {
+                    "NumberForm",
+                    "[",
+                    RowBox[
+                     {
+                      RowBox[{"kalmanAvgPrice", "-", "actualAvgPrice"}],
+                      ",",
+                      RowBox[{"{", RowBox[{"4", ",", "2"}], "}"}]
+                     }
+                    ],
+                    "]"
+                   }
+                  ],
+                  ",",
+                  "\[IndentingNewLine]",
+                  "   ",
+                  RowBox[
+                   {
+                    "NumberForm",
+                    "[",
+                    RowBox[
+                     {
+                      RowBox[{"naiveAvgPrice", "-", "actualAvgPrice"}],
+                      ",",
+                      RowBox[{"{", RowBox[{"4", ",", "2"}], "}"}]
+                     }
+                    ],
+                    "]"
+                   }
+                  ]
+                 }
+                ],
+                "}"
+               }
+              ],
+              ",",
+              "\[IndentingNewLine]",
+              "  ",
+              RowBox[
+               {
+                "{",
+                RowBox[
+                 {
+                  "\"Absolute Error (%)\"",
+                  ",",
+                  "\[IndentingNewLine]",
+                  "   ",
+                  "\"0.00%\"",
+                  ",",
+                  "\[IndentingNewLine]",
+                  "   ",
+                  RowBox[
+                   {
+                    RowBox[
+                     {
+                      "NumberForm",
+                      "[",
+                      RowBox[
+                       {
+                        "armaAvgErrPct",
+                        ",",
+                        RowBox[{"{", RowBox[{"4", ",", "2"}], "}"}]
+                       }
+                      ],
+                      "]"
+                     }
+                    ],
+                    " ",
+                    "<>",
+                    " ",
+                    "\"%\""
+                   }
+                  ],
+                  ",",
+                  "\[IndentingNewLine]",
+                  "   ",
+                  RowBox[
+                   {
+                    RowBox[
+                     {
+                      "NumberForm",
+                      "[",
+                      RowBox[
+                       {
+                        "kalmanAvgErrPct",
+                        ",",
+                        RowBox[{"{", RowBox[{"4", ",", "2"}], "}"}]
+                       }
+                      ],
+                      "]"
+                     }
+                    ],
+                    " ",
+                    "<>",
+                    " ",
+                    "\"%\""
+                   }
+                  ],
+                  ",",
+                  "\[IndentingNewLine]",
+                  "   ",
+                  RowBox[
+                   {
+                    RowBox[
+                     {
+                      "NumberForm",
+                      "[",
+                      RowBox[
+                       {
+                        "naiveAvgErrPct",
+                        ",",
+                        RowBox[{"{", RowBox[{"4", ",", "2"}], "}"}]
+                       }
+                      ],
+                      "]"
+                     }
+                    ],
+                    " ",
+                    "<>",
+                    " ",
+                    "\"%\""
+                   }
+                  ]
+                 }
+                ],
+                "}"
+               }
+              ],
+              ",",
+              "\[IndentingNewLine]",
+              "  ",
+              RowBox[
+               {
+                "{",
+                RowBox[
+                 {
+                  "\"Path MAE ($)\"",
+                  ",",
+                  "\[IndentingNewLine]",
+                  "   ",
+                  "\"-\"",
+                  ",",
+                  "\[IndentingNewLine]",
+                  "   ",
+                  RowBox[
+                   {
+                    "NumberForm",
+                    "[",
+                    RowBox[
+                     {
+                      "armaMAE",
+                      ",",
+                      RowBox[{"{", RowBox[{"4", ",", "2"}], "}"}]
+                     }
+                    ],
+                    "]"
+                   }
+                  ],
+                  ",",
+                  "\[IndentingNewLine]",
+                  "   ",
+                  RowBox[
+                   {
+                    "NumberForm",
+                    "[",
+                    RowBox[
+                     {
+                      "kalmanMAE",
+                      ",",
+                      RowBox[{"{", RowBox[{"4", ",", "2"}], "}"}]
+                     }
+                    ],
+                    "]"
+                   }
+                  ],
+                  ",",
+                  "\[IndentingNewLine]",
+                  "   ",
+                  RowBox[
+                   {
+                    "NumberForm",
+                    "[",
+                    RowBox[
+                     {
+                      "naiveMAE",
+                      ",",
+                      RowBox[{"{", RowBox[{"4", ",", "2"}], "}"}]
+                     }
+                    ],
+                    "]"
+                   }
+                  ]
+                 }
+                ],
+                "}"
+               }
+              ],
+              ",",
+              "\[IndentingNewLine]",
+              "  ",
+              RowBox[
+               {
+                "{",
+                RowBox[
+                 {
+                  "\"Path RMSE ($)\"",
+                  ",",
+                  "\[IndentingNewLine]",
+                  "   ",
+                  "\"-\"",
+                  ",",
+                  "\[IndentingNewLine]",
+                  "   ",
+                  RowBox[
+                   {
+                    "NumberForm",
+                    "[",
+                    RowBox[
+                     {
+                      "armaRMSE",
+                      ",",
+                      RowBox[{"{", RowBox[{"4", ",", "2"}], "}"}]
+                     }
+                    ],
+                    "]"
+                   }
+                  ],
+                  ",",
+                  "\[IndentingNewLine]",
+                  "   ",
+                  RowBox[
+                   {
+                    "NumberForm",
+                    "[",
+                    RowBox[
+                     {
+                      "kalmanRMSE",
+                      ",",
+                      RowBox[{"{", RowBox[{"4", ",", "2"}], "}"}]
+                     }
+                    ],
+                    "]"
+                   }
+                  ],
+                  ",",
+                  "\[IndentingNewLine]",
+                  "   ",
+                  RowBox[
+                   {
+                    "NumberForm",
+                    "[",
+                    RowBox[
+                     {
+                      "naiveRMSE",
+                      ",",
+                      RowBox[{"{", RowBox[{"4", ",", "2"}], "}"}]
+                     }
+                    ],
+                    "]"
+                   }
+                  ]
+                 }
+                ],
+                "}"
+               }
+              ]
+             }
+            ],
+            "\[IndentingNewLine]",
+            "}"
+           }
+          ],
+          ",",
+          RowBox[{"Frame", "->", "All"}],
+          ",",
+          RowBox[
+           {
+            "Background",
+            "->",
+            RowBox[
+             {
+              "{",
+              RowBox[
+               {
+                "None",
+                ",",
+                RowBox[
+                 {
+                  "{",
+                  RowBox[
+                   {
+                    RowBox[{"1", "->", "LightGray"}],
+                    ",",
+                    RowBox[{"2", "->", "None"}],
+                    ",",
+                    RowBox[{"3", "->", "None"}],
+                    ",",
+                    RowBox[{"4", "->", "LightYellow"}],
+                    ",",
+                    RowBox[{"5", "->", "None"}],
+                    ",",
+                    RowBox[{"6", "->", "None"}]
+                   }
+                  ],
+                  "}"
+                 }
+                ]
+               }
+              ],
+              "}"
+             }
+            ]
+           }
+          ],
+          ",",
+          RowBox[{"Alignment", "->", "Left"}]
+         }
+        ],
+        "]"
+       }
+      ]
+     }
+    ]
+   ],
+   "Input"
+  ],
+  Cell[
+   "We visualize the forecast paths alongside actual realized prices and dashed mean lines: ",
+   "CodeText"
+  ],
+  Cell[
+   BoxData[
+    RowBox[
+     {
+      RowBox[
+       {
+        "(*",
+        " ",
+        RowBox[
+         {
+          RowBox[{"Visualization", " ", "of", " ", "Out"}],
+          "-",
+          "of",
+          "-",
+          RowBox[
+           {
+            "Sample",
+            " ",
+            "Forecasts",
+            " ",
+            RowBox[{"vs", ".", " ", "Actual"}],
+            " ",
+            "Price",
+            " ",
+            "Trajectory"
+           }
+          ]
+         }
+        ],
+        " ",
+        "*)"
+       }
+      ],
+      "\[IndentingNewLine]",
+      RowBox[
+       {
+        RowBox[{RowBox[{"recentLookback", "=", "40"}], ";"}],
+        "\[IndentingNewLine]",
+        RowBox[
+         {
+          RowBox[
+           {
+            "historySegment",
+            "=",
+            RowBox[
+             {
+              "trainPrices",
+              "[",
+              RowBox[
+               {
+                "[",
+                RowBox[
+                 {
+                  RowBox[{"-", "recentLookback"}],
+                  " ",
+                  ";;",
+                  " ",
+                  RowBox[{"-", "1"}]
+                 }
+                ],
+                "]"
+               }
+              ],
+              "]"
+             }
+            ]
+           }
+          ],
+          ";"
+         }
+        ],
+        "\[IndentingNewLine]",
+        RowBox[
+         {
+          RowBox[
+           {
+            "historyX",
+            "=",
+            RowBox[
+             {
+              "Range",
+              "[",
+              RowBox[
+               {
+                RowBox[{RowBox[{"-", "recentLookback"}], "+", "1"}],
+                ",",
+                "0"
+               }
+              ],
+              "]"
+             }
+            ]
+           }
+          ],
+          ";"
+         }
+        ],
+        "\[IndentingNewLine]",
+        RowBox[
+         {
+          RowBox[
+           {
+            "forecastX",
+            "=",
+            RowBox[{"Range", "[", RowBox[{"1", ",", "horizon"}], "]"}]
+           }
+          ],
+          ";"
+         }
+        ],
+        "\[IndentingNewLine]",
+        "\[IndentingNewLine]",
+        RowBox[
+         {
+          "pForecast",
+          "=",
+          RowBox[
+           {
+            "Show",
+            "[",
+            "\[IndentingNewLine]",
+            "  ",
+            RowBox[
+             {
+              "(*",
+              " ",
+              RowBox[
+               {
+                RowBox[{"Recent", " ", "In"}],
+                "-",
+                RowBox[{"Sample", " ", "History"}]
+               }
+              ],
+              " ",
+              "*)"
+             }
+            ],
+            "\[IndentingNewLine]",
+            "  ",
+            RowBox[
+             {
+              RowBox[
+               {
+                "ListLinePlot",
+                "[",
+                RowBox[
+                 {
+                  RowBox[
+                   {
+                    "Transpose",
+                    "[",
+                    RowBox[
+                     {"{", RowBox[{"historyX", ",", "historySegment"}], "}"}
+                    ],
+                    "]"
+                   }
+                  ],
+                  ",",
+                  "\[IndentingNewLine]",
+                  "    ",
+                  RowBox[
+                   {
+                    "PlotStyle",
+                    "->",
+                    RowBox[
+                     {
+                      "Directive",
+                      "[",
+                      RowBox[
+                       {"Thick", ",", RowBox[{"GrayLevel", "[", "0.4", "]"}]}
+                      ],
+                      "]"
+                     }
+                    ]
+                   }
+                  ]
+                 }
+                ],
+                "]"
+               }
+              ],
+              ",",
+              "\[IndentingNewLine]",
+              "  ",
+              "\[IndentingNewLine]",
+              "  ",
+              RowBox[
+               {
+                "(*",
+                " ",
+                RowBox[
+                 {"Actual", " ", "Realized", " ", "Future", " ", "Prices"}
+                ],
+                " ",
+                "*)"
+               }
+              ],
+              "\[IndentingNewLine]",
+              "  ",
+              RowBox[
+               {
+                "ListLinePlot",
+                "[",
+                RowBox[
+                 {
+                  RowBox[
+                   {
+                    "Transpose",
+                    "[",
+                    RowBox[
+                     {"{", RowBox[{"forecastX", ",", "testPrices"}], "}"}
+                    ],
+                    "]"
+                   }
+                  ],
+                  ",",
+                  "\[IndentingNewLine]",
+                  "    ",
+                  RowBox[
+                   {
+                    "PlotStyle",
+                    "->",
+                    RowBox[
+                     {"Directive", "[", RowBox[{"Thick", ",", "Black"}], "]"}
+                    ]
+                   }
+                  ]
+                 }
+                ],
+                "]"
+               }
+              ],
+              ",",
+              "\[IndentingNewLine]",
+              "  ",
+              "\[IndentingNewLine]",
+              "  ",
+              RowBox[
+               {
+                "(*",
+                " ",
+                RowBox[{"ARMA", " ", "Forecast", " ", "Path"}],
+                " ",
+                "*)"
+               }
+              ],
+              "\[IndentingNewLine]",
+              "  ",
+              RowBox[
+               {
+                "ListLinePlot",
+                "[",
+                RowBox[
+                 {
+                  RowBox[
+                   {
+                    "Transpose",
+                    "[",
+                    RowBox[
+                     {"{", RowBox[{"forecastX", ",", "armaPricePath"}], "}"}
+                    ],
+                    "]"
+                   }
+                  ],
+                  ",",
+                  "\[IndentingNewLine]",
+                  "    ",
+                  RowBox[
+                   {
+                    "PlotStyle",
+                    "->",
+                    RowBox[
+                     {
+                      "Directive",
+                      "[",
+                      RowBox[
+                       {
+                        "Thick",
+                        ",",
+                        RowBox[
+                         {
+                          "RGBColor",
+                          "[",
+                          RowBox[{"0.85", ",", "0.2", ",", "0.2"}],
+                          "]"
+                         }
+                        ]
+                       }
+                      ],
+                      "]"
+                     }
+                    ]
+                   }
+                  ]
+                 }
+                ],
+                "]"
+               }
+              ],
+              ",",
+              "\[IndentingNewLine]",
+              "  ",
+              "\[IndentingNewLine]",
+              "  ",
+              RowBox[
+               {
+                "(*",
+                " ",
+                RowBox[
+                 {"Kalman", " ", "Trend", " ", "Forecast", " ", "Path"}
+                ],
+                " ",
+                "*)"
+               }
+              ],
+              "\[IndentingNewLine]",
+              "  ",
+              RowBox[
+               {
+                "ListLinePlot",
+                "[",
+                RowBox[
+                 {
+                  RowBox[
+                   {
+                    "Transpose",
+                    "[",
+                    RowBox[
+                     {"{", RowBox[{"forecastX", ",", "kalmanPricePath"}], "}"}
+                    ],
+                    "]"
+                   }
+                  ],
+                  ",",
+                  "\[IndentingNewLine]",
+                  "    ",
+                  RowBox[
+                   {
+                    "PlotStyle",
+                    "->",
+                    RowBox[
+                     {
+                      "Directive",
+                      "[",
+                      RowBox[
+                       {
+                        "Thick",
+                        ",",
+                        RowBox[
+                         {
+                          "RGBColor",
+                          "[",
+                          RowBox[{"0.1", ",", "0.45", ",", "0.85"}],
+                          "]"
+                         }
+                        ]
+                       }
+                      ],
+                      "]"
+                     }
+                    ]
+                   }
+                  ]
+                 }
+                ],
+                "]"
+               }
+              ],
+              ",",
+              "\[IndentingNewLine]",
+              "  ",
+              "\[IndentingNewLine]",
+              "  ",
+              RowBox[
+               {"(*", " ", RowBox[{"Naive", " ", "Benchmark"}], " ", "*)"}
+              ],
+              "\[IndentingNewLine]",
+              "  ",
+              RowBox[
+               {
+                "ListLinePlot",
+                "[",
+                RowBox[
+                 {
+                  RowBox[
+                   {
+                    "Transpose",
+                    "[",
+                    RowBox[
+                     {"{", RowBox[{"forecastX", ",", "naivePricePath"}], "}"}
+                    ],
+                    "]"
+                   }
+                  ],
+                  ",",
+                  "\[IndentingNewLine]",
+                  "    ",
+                  RowBox[
+                   {
+                    "PlotStyle",
+                    "->",
+                    RowBox[
+                     {
+                      "Directive",
+                      "[",
+                      RowBox[
+                       {"Dashed", ",", RowBox[{"GrayLevel", "[", "0.6", "]"}]}
+                      ],
+                      "]"
+                     }
+                    ]
+                   }
+                  ]
+                 }
+                ],
+                "]"
+               }
+              ],
+              ",",
+              "\[IndentingNewLine]",
+              "  ",
+              "\[IndentingNewLine]",
+              "  ",
+              RowBox[
+               {
+                "(*",
+                " ",
+                RowBox[
+                 {
+                  "Horizontal",
+                  " ",
+                  "Lines",
+                  " ",
+                  "Indicating",
+                  " ",
+                  "Expected",
+                  " ",
+                  "Average",
+                  " ",
+                  "Prices"
+                 }
+                ],
+                " ",
+                "*)"
+               }
+              ],
+              "\[IndentingNewLine]",
+              "  ",
+              RowBox[
+               {
+                "Plot",
+                "[",
+                RowBox[
+                 {
+                  "actualAvgPrice",
+                  ",",
+                  RowBox[{"{", RowBox[{"x", ",", "1", ",", "horizon"}], "}"}],
+                  ",",
+                  RowBox[
+                   {
+                    "PlotStyle",
+                    "->",
+                    RowBox[
+                     {
+                      "Directive",
+                      "[",
+                      RowBox[{"Black", ",", "Thin", ",", "DotDashed"}],
+                      "]"
+                     }
+                    ]
+                   }
+                  ]
+                 }
+                ],
+                "]"
+               }
+              ],
+              ",",
+              "\[IndentingNewLine]",
+              "  ",
+              RowBox[
+               {
+                "Plot",
+                "[",
+                RowBox[
+                 {
+                  "armaAvgPrice",
+                  ",",
+                  RowBox[{"{", RowBox[{"x", ",", "1", ",", "horizon"}], "}"}],
+                  ",",
+                  RowBox[
+                   {
+                    "PlotStyle",
+                    "->",
+                    RowBox[
+                     {
+                      "Directive",
+                      "[",
+                      RowBox[
+                       {
+                        RowBox[
+                         {
+                          "RGBColor",
+                          "[",
+                          RowBox[{"0.85", ",", "0.2", ",", "0.2"}],
+                          "]"
+                         }
+                        ],
+                        ",",
+                        "Thin",
+                        ",",
+                        "DotDashed"
+                       }
+                      ],
+                      "]"
+                     }
+                    ]
+                   }
+                  ]
+                 }
+                ],
+                "]"
+               }
+              ],
+              ",",
+              "\[IndentingNewLine]",
+              "  ",
+              RowBox[
+               {
+                "Plot",
+                "[",
+                RowBox[
+                 {
+                  "kalmanAvgPrice",
+                  ",",
+                  RowBox[{"{", RowBox[{"x", ",", "1", ",", "horizon"}], "}"}],
+                  ",",
+                  RowBox[
+                   {
+                    "PlotStyle",
+                    "->",
+                    RowBox[
+                     {
+                      "Directive",
+                      "[",
+                      RowBox[
+                       {
+                        RowBox[
+                         {
+                          "RGBColor",
+                          "[",
+                          RowBox[{"0.1", ",", "0.45", ",", "0.85"}],
+                          "]"
+                         }
+                        ],
+                        ",",
+                        "Thin",
+                        ",",
+                        "DotDashed"
+                       }
+                      ],
+                      "]"
+                     }
+                    ]
+                   }
+                  ]
+                 }
+                ],
+                "]"
+               }
+              ],
+              ",",
+              "\[IndentingNewLine]",
+              "  ",
+              "\[IndentingNewLine]",
+              "  ",
+              RowBox[{"PlotRange", "->", "All"}],
+              ",",
+              "\[IndentingNewLine]",
+              "  ",
+              RowBox[
+               {
+                "PlotLabel",
+                "->",
+                RowBox[
+                 {
+                  "Style",
+                  "[",
+                  RowBox[
+                   {
+                    "\"Out-of-Sample Price Forecast (20 Trading Days Ahead)\"",
+                    ",",
+                    "Bold",
+                    ",",
+                    "14"
+                   }
+                  ],
+                  "]"
+                 }
+                ]
+               }
+              ],
+              ",",
+              "\[IndentingNewLine]",
+              "  ",
+              RowBox[
+               {
+                "AxesLabel",
+                "->",
+                RowBox[
+                 {
+                  "{",
+                  RowBox[{"\"Relative Trading Day\"", ",", "\"Price ($)\""}],
+                  "}"
+                 }
+                ]
+               }
+              ],
+              ",",
+              "\[IndentingNewLine]",
+              "  ",
+              RowBox[{"GridLines", "->", "Automatic"}],
+              ",",
+              RowBox[{"ImageSize", "->", "580"}],
+              ",",
+              "\[IndentingNewLine]",
+              "  ",
+              RowBox[
+               {
+                "PlotLegends",
+                "->",
+                RowBox[
+                 {
+                  "Placed",
+                  "[",
+                  "\[IndentingNewLine]",
+                  "    ",
+                  RowBox[
+                   {
+                    RowBox[
+                     {
+                      "PointLegend",
+                      "[",
+                      RowBox[
+                       {
+                        RowBox[
+                         {
+                          "{",
+                          RowBox[
+                           {
+                            RowBox[{"GrayLevel", "[", "0.4", "]"}],
+                            ",",
+                            "Black",
+                            ",",
+                            RowBox[
+                             {
+                              "RGBColor",
+                              "[",
+                              RowBox[{"0.85", ",", "0.2", ",", "0.2"}],
+                              "]"
+                             }
+                            ],
+                            ",",
+                            RowBox[
+                             {
+                              "RGBColor",
+                              "[",
+                              RowBox[{"0.1", ",", "0.45", ",", "0.85"}],
+                              "]"
+                             }
+                            ],
+                            ",",
+                            RowBox[{"GrayLevel", "[", "0.6", "]"}]
+                           }
+                          ],
+                          "}"
+                         }
+                        ],
+                        ",",
+                        "\[IndentingNewLine]",
+                        "      ",
+                        RowBox[
+                         {
+                          "{",
+                          RowBox[
+                           {
+                            "\"Recent History\"",
+                            ",",
+                            "\"Actual Realized\"",
+                            ",",
+                            "\"ARMA Forecast\"",
+                            ",",
+                            "\"Kalman Trend Forecast\"",
+                            ",",
+                            "\"Naive Benchmark\""
+                           }
+                          ],
+                          "}"
+                         }
+                        ]
+                       }
+                      ],
+                      "]"
+                     }
+                    ],
+                    ",",
+                    "\[IndentingNewLine]",
+                    "    ",
+                    "Below"
+                   }
+                  ],
+                  "]"
+                 }
+                ]
+               }
+              ]
+             }
+            ],
+            "\[IndentingNewLine]",
+            "]"
+           }
+          ]
+         }
+        ]
+       }
+      ]
+     }
+    ]
+   ],
+   "Input"
+  ],
+  Cell[
+   BoxData[
+    TagBox[
+     GridBox[
+      {
+       {TemplateBox[{0}, "Spacer1"]},
+       {TemplateBox[{0}, "Spacer1"]}
+      },
+      AutoDelete -> False,
+      FrameStyle ->
+       Directive[
+        LightDarkSwitched[GrayLevel[0.8], GrayLevel[0.48678]],
+        AbsoluteThickness[1]
+       ],
+      GridBoxDividers -> {
+       "Columns" -> {False, {True}, False},
+       "Rows" -> {False, {True}, False}
+      },
+      GridBoxItemSize -> {"Columns" -> {{Fit}}, "Rows" -> {{Automatic}}}
+     ],
+     "Grid"
+    ]
+   ],
+   "Text",
+   "MarkdownDelimiter",
+   ShowStringCharacters -> False,
+   Background -> None
+  ],
+  Cell[
+   "6. Walk-Forward Backtesting (Rolling Window Evaluation)",
+   "Section"
+  ],
+  Cell[
+   "To rigorously verify model performance across differing market regimes (bull runs, pullbacks, and consolidations), we execute a walk-forward rolling backtest across 16 consecutive 20-day evaluation horizons spanning 2023\[Dash]2024.",
+   "Text"
+  ],
+  Cell["In each window:", "Text"],
+  Cell[
+   "1. Models are trained on the preceding 250 trading days (1-year lookback).",
+   "Text"
+  ],
+  Cell[
+   "2. Models forecast expected average price over the subsequent 20 trading days.",
+   "Text"
+  ],
+  Cell[
+   "3. Errors relative to realized prices are systematically recorded. ",
+   "Text"
+  ],
+  Cell[
+   BoxData[
+    RowBox[
+     {
+      RowBox[
+       {
+        "(*",
+        " ",
+        RowBox[
+         {
+          "Walk",
+          "-",
+          RowBox[
+           {
+            "Forward",
+            " ",
+            "Rolling",
+            " ",
+            "Evaluation",
+            " ",
+            "Engine"
+           }
+          ]
+         }
+        ],
+        " ",
+        "*)"
+       }
+      ],
+      "\[IndentingNewLine]",
+      RowBox[
+       {
+        RowBox[{RowBox[{"windowLookback", "=", "250"}], ";"}],
+        "\[IndentingNewLine]",
+        RowBox[{RowBox[{"evalHorizon", "=", "20"}], ";"}],
+        "\[IndentingNewLine]",
+        RowBox[{RowBox[{"stepSize", "=", "15"}], ";"}],
+        "\[IndentingNewLine]",
+        "\[IndentingNewLine]",
+        RowBox[
+         {
+          RowBox[
+           {
+            "rollingResults",
+            "=",
+            RowBox[
+             {
+              "Module",
+              "[",
+              RowBox[
+               {
+                RowBox[
+                 {
+                  "{",
+                  RowBox[
+                   {
+                    RowBox[{"results", "=", RowBox[{"{", "}"}]}],
+                    ",",
+                    "tStart",
+                    ",",
+                    "tEnd",
+                    ",",
+                    "fEnd",
+                    ",",
+                    "train",
+                    ",",
+                    "future",
+                    ",",
+                    "\[IndentingNewLine]",
+                    "                         ",
+                    "muK",
+                    ",",
+                    "betaK",
+                    ",",
+                    "kRes",
+                    ",",
+                    "kalmanFC",
+                    ",",
+                    "kalmanAvg",
+                    ",",
+                    "\[IndentingNewLine]",
+                    "                         ",
+                    "logR",
+                    ",",
+                    "armaFit",
+                    ",",
+                    "armaFC",
+                    ",",
+                    "armaAvg",
+                    ",",
+                    "\[IndentingNewLine]",
+                    "                         ",
+                    "actAvg",
+                    ",",
+                    "naiveAvg",
+                    ",",
+                    "pTerminal"
+                   }
+                  ],
+                  "}"
+                 }
+                ],
+                ",",
+                "\[IndentingNewLine]",
+                "  ",
+                RowBox[
+                 {
+                  RowBox[
+                   {
+                    "Do",
+                    "[",
+                    "\[IndentingNewLine]",
+                    "    ",
+                    RowBox[
+                     {
+                      RowBox[
+                       {
+                        RowBox[{"tStart", "=", "i"}],
+                        ";",
+                        "\[IndentingNewLine]",
+                        "    ",
+                        RowBox[
+                         {
+                          "tEnd",
+                          "=",
+                          RowBox[{"i", "+", "windowLookback", "-", "1"}]
+                         }
+                        ],
+                        ";",
+                        "\[IndentingNewLine]",
+                        "    ",
+                        RowBox[{"fEnd", "=", RowBox[{"tEnd", "+", "evalHorizon"}]}],
+                        ";",
+                        "\[IndentingNewLine]",
+                        "    ",
+                        RowBox[
+                         {
+                          "If",
+                          "[",
+                          RowBox[
+                           {
+                            RowBox[{"fEnd", ">", "nTotal"}],
+                            ",",
+                            RowBox[{"Break", "[", "]"}]
+                           }
+                          ],
+                          "]"
+                         }
+                        ],
+                        ";",
+                        "\[IndentingNewLine]",
+                        "    ",
+                        "\[IndentingNewLine]",
+                        "    ",
+                        RowBox[
+                         {
+                          "train",
+                          "=",
+                          RowBox[
+                           {
+                            "rawPrices",
+                            "[",
+                            RowBox[
+                             {"[", RowBox[{"tStart", " ", ";;", " ", "tEnd"}], "]"}
+                            ],
+                            "]"
+                           }
+                          ]
+                         }
+                        ],
+                        ";",
+                        "\[IndentingNewLine]",
+                        "    ",
+                        RowBox[
+                         {
+                          "future",
+                          "=",
+                          RowBox[
+                           {
+                            "rawPrices",
+                            "[",
+                            RowBox[
+                             {
+                              "[",
+                              RowBox[
+                               {RowBox[{"tEnd", "+", "1"}], " ", ";;", " ", "fEnd"}
+                              ],
+                              "]"
+                             }
+                            ],
+                            "]"
+                           }
+                          ]
+                         }
+                        ],
+                        ";",
+                        "\[IndentingNewLine]",
+                        "    ",
+                        RowBox[
+                         {"pTerminal", "=", RowBox[{"Last", "[", "train", "]"}]}
+                        ],
+                        ";",
+                        "\[IndentingNewLine]",
+                        "    ",
+                        RowBox[
+                         {"actAvg", "=", RowBox[{"Mean", "[", "future", "]"}]}
+                        ],
+                        ";",
+                        "\[IndentingNewLine]",
+                        "    ",
+                        RowBox[{"naiveAvg", "=", "pTerminal"}],
+                        ";",
+                        "\[IndentingNewLine]",
+                        "    ",
+                        "\[IndentingNewLine]",
+                        "    ",
+                        RowBox[
+                         {
+                          "(*",
+                          " ",
+                          RowBox[
+                           {
+                            "1.",
+                            " ",
+                            "Kalman",
+                            " ",
+                            "Linear",
+                            " ",
+                            "Trend",
+                            " ",
+                            "Filter"
+                           }
+                          ],
+                          " ",
+                          "*)"
+                         }
+                        ],
+                        "\[IndentingNewLine]",
+                        "    ",
+                        RowBox[
+                         {
+                          "kRes",
+                          "=",
+                          RowBox[
+                           {
+                            "kalmanTrendFilter",
+                            "[",
+                            RowBox[{"train", ",", "1.0", ",", "0.05", ",", "5.0"}],
+                            "]"
+                           }
+                          ]
+                         }
+                        ],
+                        ";",
+                        "\[IndentingNewLine]",
+                        "    ",
+                        RowBox[
+                         {
+                          "muK",
+                          "=",
+                          RowBox[
+                           {
+                            RowBox[{"kRes", "[", "\"FinalState\"", "]"}],
+                            "[",
+                            RowBox[{"[", "1", "]"}],
+                            "]"
+                           }
+                          ]
+                         }
+                        ],
+                        ";",
+                        "\[IndentingNewLine]",
+                        "    ",
+                        RowBox[
+                         {
+                          "betaK",
+                          "=",
+                          RowBox[
+                           {
+                            RowBox[{"kRes", "[", "\"FinalState\"", "]"}],
+                            "[",
+                            RowBox[{"[", "2", "]"}],
+                            "]"
+                           }
+                          ]
+                         }
+                        ],
+                        ";",
+                        "\[IndentingNewLine]",
+                        "    ",
+                        RowBox[
+                         {
+                          "kalmanFC",
+                          "=",
+                          RowBox[
+                           {
+                            "Table",
+                            "[",
+                            RowBox[
+                             {
+                              RowBox[{"muK", "+", RowBox[{"k", "*", "betaK"}]}],
+                              ",",
+                              RowBox[
+                               {"{", RowBox[{"k", ",", "1", ",", "evalHorizon"}], "}"}
+                              ]
+                             }
+                            ],
+                            "]"
+                           }
+                          ]
+                         }
+                        ],
+                        ";",
+                        "\[IndentingNewLine]",
+                        "    ",
+                        RowBox[
+                         {"kalmanAvg", "=", RowBox[{"Mean", "[", "kalmanFC", "]"}]}
+                        ],
+                        ";",
+                        "\[IndentingNewLine]",
+                        "    ",
+                        "\[IndentingNewLine]",
+                        "    ",
+                        RowBox[
+                         {
+                          "(*",
+                          " ",
+                          RowBox[
+                           {"2.", " ", "ARMA", " ", "on", " ", "Log", " ", "Returns"}
+                          ],
+                          " ",
+                          "*)"
+                         }
+                        ],
+                        "\[IndentingNewLine]",
+                        "    ",
+                        RowBox[
+                         {
+                          "logR",
+                          "=",
+                          RowBox[
+                           {
+                            "Differences",
+                            "[",
+                            RowBox[{"Log", "[", "train", "]"}],
+                            "]"
+                           }
+                          ]
+                         }
+                        ],
+                        ";",
+                        "\[IndentingNewLine]",
+                        "    ",
+                        RowBox[
+                         {
+                          "armaFit",
+                          "=",
+                          RowBox[
+                           {
+                            "Quiet",
+                            "@",
+                            RowBox[
+                             {
+                              "TimeSeriesModelFit",
+                              "[",
+                              RowBox[{"logR", ",", "\"ARMA\""}],
+                              "]"
+                             }
+                            ]
+                           }
+                          ]
+                         }
+                        ],
+                        ";",
+                        "\[IndentingNewLine]",
+                        "    ",
+                        RowBox[
+                         {
+                          "armaFC",
+                          "=",
+                          RowBox[
+                           {
+                            "Quiet",
+                            "@",
+                            RowBox[
+                             {
+                              RowBox[
+                               {
+                                "TimeSeriesForecast",
+                                "[",
+                                RowBox[{"armaFit", ",", RowBox[{"{", "evalHorizon", "}"}]}],
+                                "]"
+                               }
+                              ],
+                              "[",
+                              "\"Values\"",
+                              "]"
+                             }
+                            ]
+                           }
+                          ]
+                         }
+                        ],
+                        ";",
+                        "\[IndentingNewLine]",
+                        "    ",
+                        RowBox[
+                         {
+                          "armaAvg",
+                          "=",
+                          RowBox[
+                           {
+                            "Mean",
+                            "[",
+                            RowBox[
+                             {
+                              "pTerminal",
+                              "*",
+                              RowBox[
+                               {
+                                "Exp",
+                                "[",
+                                RowBox[{"Accumulate", "[", "armaFC", "]"}],
+                                "]"
+                               }
+                              ]
+                             }
+                            ],
+                            "]"
+                           }
+                          ]
+                         }
+                        ],
+                        ";",
+                        "\[IndentingNewLine]",
+                        "    ",
+                        "\[IndentingNewLine]",
+                        "    ",
+                        RowBox[
+                         {
+                          "AppendTo",
+                          "[",
+                          RowBox[
+                           {
+                            "results",
+                            ",",
+                            RowBox[
+                             {
+                              "<|",
+                              "\[IndentingNewLine]",
+                              "      ",
+                              RowBox[
+                               {
+                                RowBox[
+                                 {
+                                  "\"Window\"",
+                                  "->",
+                                  RowBox[{RowBox[{"Length", "[", "results", "]"}], "+", "1"}]
+                                 }
+                                ],
+                                ",",
+                                "\[IndentingNewLine]",
+                                "      ",
+                                RowBox[{"\"EndDay\"", "->", "tEnd"}],
+                                ",",
+                                "\[IndentingNewLine]",
+                                "      ",
+                                RowBox[{"\"ActualAvg\"", "->", "actAvg"}],
+                                ",",
+                                "\[IndentingNewLine]",
+                                "      ",
+                                RowBox[{"\"ARMAAvg\"", "->", "armaAvg"}],
+                                ",",
+                                "\[IndentingNewLine]",
+                                "      ",
+                                RowBox[{"\"KalmanAvg\"", "->", "kalmanAvg"}],
+                                ",",
+                                "\[IndentingNewLine]",
+                                "      ",
+                                RowBox[{"\"NaiveAvg\"", "->", "naiveAvg"}],
+                                ",",
+                                "\[IndentingNewLine]",
+                                "      ",
+                                RowBox[
+                                 {
+                                  "\"ARMA_MAPE\"",
+                                  "->",
+                                  RowBox[
+                                   {
+                                    RowBox[
+                                     {
+                                      RowBox[
+                                       {"Abs", "[", RowBox[{"armaAvg", "-", "actAvg"}], "]"}
+                                      ],
+                                      "/",
+                                      "actAvg"
+                                     }
+                                    ],
+                                    "*",
+                                    "100.0"
+                                   }
+                                  ]
+                                 }
+                                ],
+                                ",",
+                                "\[IndentingNewLine]",
+                                "      ",
+                                RowBox[
+                                 {
+                                  "\"Kalman_MAPE\"",
+                                  "->",
+                                  RowBox[
+                                   {
+                                    RowBox[
+                                     {
+                                      RowBox[
+                                       {"Abs", "[", RowBox[{"kalmanAvg", "-", "actAvg"}], "]"}
+                                      ],
+                                      "/",
+                                      "actAvg"
+                                     }
+                                    ],
+                                    "*",
+                                    "100.0"
+                                   }
+                                  ]
+                                 }
+                                ],
+                                ",",
+                                "\[IndentingNewLine]",
+                                "      ",
+                                RowBox[
+                                 {
+                                  "\"Naive_MAPE\"",
+                                  "->",
+                                  RowBox[
+                                   {
+                                    RowBox[
+                                     {
+                                      RowBox[
+                                       {"Abs", "[", RowBox[{"naiveAvg", "-", "actAvg"}], "]"}
+                                      ],
+                                      "/",
+                                      "actAvg"
+                                     }
+                                    ],
+                                    "*",
+                                    "100.0"
+                                   }
+                                  ]
+                                 }
+                                ]
+                               }
+                              ],
+                              "\[IndentingNewLine]",
+                              "    ",
+                              "|>"
+                             }
+                            ]
+                           }
+                          ],
+                          "]"
+                         }
+                        ],
+                        ";"
+                       }
+                      ],
+                      "\[IndentingNewLine]",
+                      "  ",
+                      ",",
+                      RowBox[
+                       {
+                        "{",
+                        RowBox[
+                         {
+                          "i",
+                          ",",
+                          "1",
+                          ",",
+                          RowBox[
+                           {
+                            "nTotal",
+                            "-",
+                            "windowLookback",
+                            "-",
+                            "evalHorizon",
+                            "+",
+                            "1"
+                           }
+                          ],
+                          ",",
+                          "stepSize"
+                         }
+                        ],
+                        "}"
+                       }
+                      ]
+                     }
+                    ],
+                    "]"
+                   }
+                  ],
+                  ";",
+                  "\[IndentingNewLine]",
+                  "  ",
+                  "results"
+                 }
+                ]
+               }
+              ],
+              "\[IndentingNewLine]",
+              "]"
+             }
+            ]
+           }
+          ],
+          ";"
+         }
+        ],
+        "\[IndentingNewLine]",
+        "\[IndentingNewLine]",
+        RowBox[
+         {
+          RowBox[
+           {
+            "Print",
+            "[",
+            RowBox[
+             {
+              "\"Completed Walk-Forward Backtest across \"",
+              ",",
+              RowBox[{"Length", "[", "rollingResults", "]"}],
+              ",",
+              "\" evaluation windows.\""
+             }
+            ],
+            "]"
+           }
+          ],
+          ";"
+         }
+        ]
+       }
+      ]
+     }
+    ]
+   ],
+   "Input"
+  ],
+  Cell[
+   "We now compute aggregate statistics across all 16 evaluation windows: ",
+   "CodeText"
+  ],
+  Cell[
+   BoxData[
+    RowBox[
+     {
+      RowBox[
+       {
+        "(*",
+        " ",
+        RowBox[
+         {
+          "Aggregate",
+          " ",
+          "Statistical",
+          " ",
+          "Comparison",
+          " ",
+          "across",
+          " ",
+          "all",
+          " ",
+          "16",
+          " ",
+          "Windows"
+         }
+        ],
+        " ",
+        "*)"
+       }
+      ],
+      "\[IndentingNewLine]",
+      RowBox[
+       {
+        RowBox[
+         {
+          RowBox[
+           {
+            "meanArmaMAPE",
+            "=",
+            RowBox[
+             {
+              "Mean",
+              "[",
+              RowBox[
+               {
+                "rollingResults",
+                "[",
+                RowBox[{"[", RowBox[{"All", ",", "\"ARMA_MAPE\""}], "]"}],
+                "]"
+               }
+              ],
+              "]"
+             }
+            ]
+           }
+          ],
+          ";"
+         }
+        ],
+        "\[IndentingNewLine]",
+        RowBox[
+         {
+          RowBox[
+           {
+            "meanKalmanMAPE",
+            "=",
+            RowBox[
+             {
+              "Mean",
+              "[",
+              RowBox[
+               {
+                "rollingResults",
+                "[",
+                RowBox[{"[", RowBox[{"All", ",", "\"Kalman_MAPE\""}], "]"}],
+                "]"
+               }
+              ],
+              "]"
+             }
+            ]
+           }
+          ],
+          ";"
+         }
+        ],
+        "\[IndentingNewLine]",
+        RowBox[
+         {
+          RowBox[
+           {
+            "meanNaiveMAPE",
+            "=",
+            RowBox[
+             {
+              "Mean",
+              "[",
+              RowBox[
+               {
+                "rollingResults",
+                "[",
+                RowBox[{"[", RowBox[{"All", ",", "\"Naive_MAPE\""}], "]"}],
+                "]"
+               }
+              ],
+              "]"
+             }
+            ]
+           }
+          ],
+          ";"
+         }
+        ],
+        "\[IndentingNewLine]",
+        "\[IndentingNewLine]",
+        RowBox[
+         {
+          RowBox[
+           {
+            "medArmaMAPE",
+            "=",
+            RowBox[
+             {
+              "Median",
+              "[",
+              RowBox[
+               {
+                "rollingResults",
+                "[",
+                RowBox[{"[", RowBox[{"All", ",", "\"ARMA_MAPE\""}], "]"}],
+                "]"
+               }
+              ],
+              "]"
+             }
+            ]
+           }
+          ],
+          ";"
+         }
+        ],
+        "\[IndentingNewLine]",
+        RowBox[
+         {
+          RowBox[
+           {
+            "medKalmanMAPE",
+            "=",
+            RowBox[
+             {
+              "Median",
+              "[",
+              RowBox[
+               {
+                "rollingResults",
+                "[",
+                RowBox[{"[", RowBox[{"All", ",", "\"Kalman_MAPE\""}], "]"}],
+                "]"
+               }
+              ],
+              "]"
+             }
+            ]
+           }
+          ],
+          ";"
+         }
+        ],
+        "\[IndentingNewLine]",
+        RowBox[
+         {
+          RowBox[
+           {
+            "medNaiveMAPE",
+            "=",
+            RowBox[
+             {
+              "Median",
+              "[",
+              RowBox[
+               {
+                "rollingResults",
+                "[",
+                RowBox[{"[", RowBox[{"All", ",", "\"Naive_MAPE\""}], "]"}],
+                "]"
+               }
+              ],
+              "]"
+             }
+            ]
+           }
+          ],
+          ";"
+         }
+        ],
+        "\[IndentingNewLine]",
+        "\[IndentingNewLine]",
+        RowBox[
+         {
+          RowBox[
+           {
+            "rmseArma",
+            "=",
+            RowBox[
+             {
+              "Sqrt",
+              "[",
+              RowBox[
+               {
+                "Mean",
+                "[",
+                RowBox[
+                 {
+                  RowBox[
+                   {
+                    "(",
+                    RowBox[
+                     {
+                      RowBox[
+                       {
+                        "rollingResults",
+                        "[",
+                        RowBox[{"[", RowBox[{"All", ",", "\"ARMAAvg\""}], "]"}],
+                        "]"
+                       }
+                      ],
+                      "-",
+                      RowBox[
+                       {
+                        "rollingResults",
+                        "[",
+                        RowBox[{"[", RowBox[{"All", ",", "\"ActualAvg\""}], "]"}],
+                        "]"
+                       }
+                      ]
+                     }
+                    ],
+                    ")"
+                   }
+                  ],
+                  "^",
+                  "2"
+                 }
+                ],
+                "]"
+               }
+              ],
+              "]"
+             }
+            ]
+           }
+          ],
+          ";"
+         }
+        ],
+        "\[IndentingNewLine]",
+        RowBox[
+         {
+          RowBox[
+           {
+            "rmseKalman",
+            "=",
+            RowBox[
+             {
+              "Sqrt",
+              "[",
+              RowBox[
+               {
+                "Mean",
+                "[",
+                RowBox[
+                 {
+                  RowBox[
+                   {
+                    "(",
+                    RowBox[
+                     {
+                      RowBox[
+                       {
+                        "rollingResults",
+                        "[",
+                        RowBox[{"[", RowBox[{"All", ",", "\"KalmanAvg\""}], "]"}],
+                        "]"
+                       }
+                      ],
+                      "-",
+                      RowBox[
+                       {
+                        "rollingResults",
+                        "[",
+                        RowBox[{"[", RowBox[{"All", ",", "\"ActualAvg\""}], "]"}],
+                        "]"
+                       }
+                      ]
+                     }
+                    ],
+                    ")"
+                   }
+                  ],
+                  "^",
+                  "2"
+                 }
+                ],
+                "]"
+               }
+              ],
+              "]"
+             }
+            ]
+           }
+          ],
+          ";"
+         }
+        ],
+        "\[IndentingNewLine]",
+        RowBox[
+         {
+          RowBox[
+           {
+            "rmseNaive",
+            "=",
+            RowBox[
+             {
+              "Sqrt",
+              "[",
+              RowBox[
+               {
+                "Mean",
+                "[",
+                RowBox[
+                 {
+                  RowBox[
+                   {
+                    "(",
+                    RowBox[
+                     {
+                      RowBox[
+                       {
+                        "rollingResults",
+                        "[",
+                        RowBox[{"[", RowBox[{"All", ",", "\"NaiveAvg\""}], "]"}],
+                        "]"
+                       }
+                      ],
+                      "-",
+                      RowBox[
+                       {
+                        "rollingResults",
+                        "[",
+                        RowBox[{"[", RowBox[{"All", ",", "\"ActualAvg\""}], "]"}],
+                        "]"
+                       }
+                      ]
+                     }
+                    ],
+                    ")"
+                   }
+                  ],
+                  "^",
+                  "2"
+                 }
+                ],
+                "]"
+               }
+              ],
+              "]"
+             }
+            ]
+           }
+          ],
+          ";"
+         }
+        ],
+        "\[IndentingNewLine]",
+        "\[IndentingNewLine]",
+        RowBox[
+         {
+          RowBox[
+           {
+            "winRateArma",
+            "=",
+            RowBox[
+             {
+              "Round",
+              "[",
+              RowBox[
+               {
+                RowBox[
+                 {
+                  RowBox[
+                   {
+                    "Count",
+                    "[",
+                    RowBox[
+                     {
+                      "rollingResults",
+                      ",",
+                      RowBox[
+                       {
+                        "r_",
+                        " ",
+                        "/;",
+                        " ",
+                        RowBox[
+                         {
+                          RowBox[{"r", "[", "\"ARMA_MAPE\"", "]"}],
+                          "<",
+                          RowBox[{"r", "[", "\"Naive_MAPE\"", "]"}]
+                         }
+                        ]
+                       }
+                      ]
+                     }
+                    ],
+                    "]"
+                   }
+                  ],
+                  "/",
+                  RowBox[{"Length", "[", "rollingResults", "]"}]
+                 }
+                ],
+                "*",
+                "100"
+               }
+              ],
+              "]"
+             }
+            ]
+           }
+          ],
+          ";"
+         }
+        ],
+        "\[IndentingNewLine]",
+        RowBox[
+         {
+          RowBox[
+           {
+            "winRateKalman",
+            "=",
+            RowBox[
+             {
+              "Round",
+              "[",
+              RowBox[
+               {
+                RowBox[
+                 {
+                  RowBox[
+                   {
+                    "Count",
+                    "[",
+                    RowBox[
+                     {
+                      "rollingResults",
+                      ",",
+                      RowBox[
+                       {
+                        "r_",
+                        " ",
+                        "/;",
+                        " ",
+                        RowBox[
+                         {
+                          RowBox[{"r", "[", "\"Kalman_MAPE\"", "]"}],
+                          "<",
+                          RowBox[{"r", "[", "\"Naive_MAPE\"", "]"}]
+                         }
+                        ]
+                       }
+                      ]
+                     }
+                    ],
+                    "]"
+                   }
+                  ],
+                  "/",
+                  RowBox[{"Length", "[", "rollingResults", "]"}]
+                 }
+                ],
+                "*",
+                "100"
+               }
+              ],
+              "]"
+             }
+            ]
+           }
+          ],
+          ";"
+         }
+        ],
+        "\[IndentingNewLine]",
+        "\[IndentingNewLine]",
+        RowBox[
+         {
+          "Grid",
+          "[",
+          RowBox[
+           {
+            RowBox[
+             {
+              "{",
+              "\[IndentingNewLine]",
+              "  ",
+              RowBox[
+               {
+                RowBox[
+                 {
+                  "{",
+                  RowBox[
+                   {
+                    "\"Evaluation Metric\"",
+                    ",",
+                    "\"ARMA Model\"",
+                    ",",
+                    "\"Kalman Trend Filter\"",
+                    ",",
+                    "\"Naive Random Walk\""
+                   }
+                  ],
+                  "}"
+                 }
+                ],
+                ",",
+                "\[IndentingNewLine]",
+                "  ",
+                RowBox[
+                 {
+                  "{",
+                  RowBox[
+                   {
+                    "\"Mean Absolute % Error (MAPE)\"",
+                    ",",
+                    "\[IndentingNewLine]",
+                    "   ",
+                    RowBox[
+                     {
+                      RowBox[
+                       {
+                        "NumberForm",
+                        "[",
+                        RowBox[
+                         {
+                          "meanArmaMAPE",
+                          ",",
+                          RowBox[{"{", RowBox[{"4", ",", "2"}], "}"}]
+                         }
+                        ],
+                        "]"
+                       }
+                      ],
+                      " ",
+                      "<>",
+                      " ",
+                      "\"%\""
+                     }
+                    ],
+                    ",",
+                    "\[IndentingNewLine]",
+                    "   ",
+                    RowBox[
+                     {
+                      RowBox[
+                       {
+                        "NumberForm",
+                        "[",
+                        RowBox[
+                         {
+                          "meanKalmanMAPE",
+                          ",",
+                          RowBox[{"{", RowBox[{"4", ",", "2"}], "}"}]
+                         }
+                        ],
+                        "]"
+                       }
+                      ],
+                      " ",
+                      "<>",
+                      " ",
+                      "\"%\""
+                     }
+                    ],
+                    ",",
+                    "\[IndentingNewLine]",
+                    "   ",
+                    RowBox[
+                     {
+                      RowBox[
+                       {
+                        "NumberForm",
+                        "[",
+                        RowBox[
+                         {
+                          "meanNaiveMAPE",
+                          ",",
+                          RowBox[{"{", RowBox[{"4", ",", "2"}], "}"}]
+                         }
+                        ],
+                        "]"
+                       }
+                      ],
+                      " ",
+                      "<>",
+                      " ",
+                      "\"%\""
+                     }
+                    ]
+                   }
+                  ],
+                  "}"
+                 }
+                ],
+                ",",
+                "\[IndentingNewLine]",
+                "  ",
+                RowBox[
+                 {
+                  "{",
+                  RowBox[
+                   {
+                    "\"Median Absolute % Error\"",
+                    ",",
+                    "\[IndentingNewLine]",
+                    "   ",
+                    RowBox[
+                     {
+                      RowBox[
+                       {
+                        "NumberForm",
+                        "[",
+                        RowBox[
+                         {
+                          "medArmaMAPE",
+                          ",",
+                          RowBox[{"{", RowBox[{"4", ",", "2"}], "}"}]
+                         }
+                        ],
+                        "]"
+                       }
+                      ],
+                      " ",
+                      "<>",
+                      " ",
+                      "\"%\""
+                     }
+                    ],
+                    ",",
+                    "\[IndentingNewLine]",
+                    "   ",
+                    RowBox[
+                     {
+                      RowBox[
+                       {
+                        "NumberForm",
+                        "[",
+                        RowBox[
+                         {
+                          "medKalmanMAPE",
+                          ",",
+                          RowBox[{"{", RowBox[{"4", ",", "2"}], "}"}]
+                         }
+                        ],
+                        "]"
+                       }
+                      ],
+                      " ",
+                      "<>",
+                      " ",
+                      "\"%\""
+                     }
+                    ],
+                    ",",
+                    "\[IndentingNewLine]",
+                    "   ",
+                    RowBox[
+                     {
+                      RowBox[
+                       {
+                        "NumberForm",
+                        "[",
+                        RowBox[
+                         {
+                          "medNaiveMAPE",
+                          ",",
+                          RowBox[{"{", RowBox[{"4", ",", "2"}], "}"}]
+                         }
+                        ],
+                        "]"
+                       }
+                      ],
+                      " ",
+                      "<>",
+                      " ",
+                      "\"%\""
+                     }
+                    ]
+                   }
+                  ],
+                  "}"
+                 }
+                ],
+                ",",
+                "\[IndentingNewLine]",
+                "  ",
+                RowBox[
+                 {
+                  "{",
+                  RowBox[
+                   {
+                    "\"Root Mean Squared Error ($)\"",
+                    ",",
+                    "\[IndentingNewLine]",
+                    "   ",
+                    RowBox[
+                     {
+                      "\"$\"",
+                      " ",
+                      "<>",
+                      " ",
+                      RowBox[
+                       {
+                        "ToString",
+                        "@",
+                        RowBox[
+                         {
+                          "NumberForm",
+                          "[",
+                          RowBox[
+                           {
+                            "rmseArma",
+                            ",",
+                            RowBox[{"{", RowBox[{"4", ",", "2"}], "}"}]
+                           }
+                          ],
+                          "]"
+                         }
+                        ]
+                       }
+                      ]
+                     }
+                    ],
+                    ",",
+                    "\[IndentingNewLine]",
+                    "   ",
+                    RowBox[
+                     {
+                      "\"$\"",
+                      " ",
+                      "<>",
+                      " ",
+                      RowBox[
+                       {
+                        "ToString",
+                        "@",
+                        RowBox[
+                         {
+                          "NumberForm",
+                          "[",
+                          RowBox[
+                           {
+                            "rmseKalman",
+                            ",",
+                            RowBox[{"{", RowBox[{"4", ",", "2"}], "}"}]
+                           }
+                          ],
+                          "]"
+                         }
+                        ]
+                       }
+                      ]
+                     }
+                    ],
+                    ",",
+                    "\[IndentingNewLine]",
+                    "   ",
+                    RowBox[
+                     {
+                      "\"$\"",
+                      " ",
+                      "<>",
+                      " ",
+                      RowBox[
+                       {
+                        "ToString",
+                        "@",
+                        RowBox[
+                         {
+                          "NumberForm",
+                          "[",
+                          RowBox[
+                           {
+                            "rmseNaive",
+                            ",",
+                            RowBox[{"{", RowBox[{"4", ",", "2"}], "}"}]
+                           }
+                          ],
+                          "]"
+                         }
+                        ]
+                       }
+                      ]
+                     }
+                    ]
+                   }
+                  ],
+                  "}"
+                 }
+                ],
+                ",",
+                "\[IndentingNewLine]",
+                "  ",
+                RowBox[
+                 {
+                  "{",
+                  RowBox[
+                   {
+                    "\"Win Rate vs. Naive Benchmark\"",
+                    ",",
+                    "\[IndentingNewLine]",
+                    "   ",
+                    RowBox[
+                     {
+                      RowBox[{"ToString", "[", "winRateArma", "]"}],
+                      " ",
+                      "<>",
+                      " ",
+                      "\"%\""
+                     }
+                    ],
+                    ",",
+                    "\[IndentingNewLine]",
+                    "   ",
+                    RowBox[
+                     {
+                      RowBox[{"ToString", "[", "winRateKalman", "]"}],
+                      " ",
+                      "<>",
+                      " ",
+                      "\"%\""
+                     }
+                    ],
+                    ",",
+                    "\[IndentingNewLine]",
+                    "   ",
+                    "\"-\""
+                   }
+                  ],
+                  "}"
+                 }
+                ]
+               }
+              ],
+              "\[IndentingNewLine]",
+              "}"
+             }
+            ],
+            ",",
+            RowBox[{"Frame", "->", "All"}],
+            ",",
+            RowBox[
+             {
+              "Background",
+              "->",
+              RowBox[
+               {
+                "{",
+                RowBox[
+                 {
+                  "None",
+                  ",",
+                  RowBox[
+                   {
+                    "{",
+                    RowBox[
+                     {
+                      RowBox[{"1", "->", "LightGray"}],
+                      ",",
+                      RowBox[{"2", "->", "LightGreen"}],
+                      ",",
+                      RowBox[{"3", "->", "None"}],
+                      ",",
+                      RowBox[{"4", "->", "None"}],
+                      ",",
+                      RowBox[{"5", "->", "None"}]
+                     }
+                    ],
+                    "}"
+                   }
+                  ]
+                 }
+                ],
+                "}"
+               }
+              ]
+             }
+            ],
+            ",",
+            RowBox[{"Alignment", "->", "Left"}]
+           }
+          ],
+          "]"
+         }
+        ]
+       }
+      ]
+     }
+    ]
+   ],
+   "Input"
+  ],
+  Cell[
+   "We visualize the window-by-window forecast error distribution using a grouped bar chart: ",
+   "CodeText"
+  ],
+  Cell[
+   BoxData[
+    RowBox[
+     {
+      RowBox[
+       {
+        "(*",
+        " ",
+        RowBox[
+         {
+          "Grouped",
+          " ",
+          "Bar",
+          " ",
+          "Chart",
+          " ",
+          "of",
+          " ",
+          "Prediction",
+          " ",
+          "Error",
+          " ",
+          "Percentage",
+          " ",
+          "per",
+          " ",
+          "Window"
+         }
+        ],
+        " ",
+        "*)"
+       }
+      ],
+      "\[IndentingNewLine]",
+      RowBox[
+       {
+        RowBox[
+         {
+          RowBox[
+           {
+            "windowLabels",
+            "=",
+            RowBox[
+             {
+              "rollingResults",
+              "[",
+              RowBox[{"[", RowBox[{"All", ",", "\"Window\""}], "]"}],
+              "]"
+             }
+            ]
+           }
+          ],
+          ";"
+         }
+        ],
+        "\[IndentingNewLine]",
+        RowBox[
+         {
+          RowBox[
+           {
+            "armaErrors",
+            "=",
+            RowBox[
+             {
+              "rollingResults",
+              "[",
+              RowBox[{"[", RowBox[{"All", ",", "\"ARMA_MAPE\""}], "]"}],
+              "]"
+             }
+            ]
+           }
+          ],
+          ";"
+         }
+        ],
+        "\[IndentingNewLine]",
+        RowBox[
+         {
+          RowBox[
+           {
+            "kalmanErrors",
+            "=",
+            RowBox[
+             {
+              "rollingResults",
+              "[",
+              RowBox[{"[", RowBox[{"All", ",", "\"Kalman_MAPE\""}], "]"}],
+              "]"
+             }
+            ]
+           }
+          ],
+          ";"
+         }
+        ],
+        "\[IndentingNewLine]",
+        RowBox[
+         {
+          RowBox[
+           {
+            "naiveErrors",
+            "=",
+            RowBox[
+             {
+              "rollingResults",
+              "[",
+              RowBox[{"[", RowBox[{"All", ",", "\"Naive_MAPE\""}], "]"}],
+              "]"
+             }
+            ]
+           }
+          ],
+          ";"
+         }
+        ],
+        "\[IndentingNewLine]",
+        "\[IndentingNewLine]",
+        RowBox[
+         {
+          "BarChart",
+          "[",
+          RowBox[
+           {
+            RowBox[
+             {
+              "Transpose",
+              "[",
+              RowBox[
+               {
+                "{",
+                RowBox[
+                 {"armaErrors", ",", "kalmanErrors", ",", "naiveErrors"}
+                ],
+                "}"
+               }
+              ],
+              "]"
+             }
+            ],
+            ",",
+            "\[IndentingNewLine]",
+            "  ",
+            RowBox[{"ChartLayout", "->", "\"Grouped\""}],
+            ",",
+            "\[IndentingNewLine]",
+            "  ",
+            RowBox[
+             {
+              "ChartStyle",
+              "->",
+              RowBox[
+               {
+                "{",
+                RowBox[
+                 {
+                  RowBox[
+                   {
+                    "RGBColor",
+                    "[",
+                    RowBox[{"0.85", ",", "0.25", ",", "0.25"}],
+                    "]"
+                   }
+                  ],
+                  ",",
+                  RowBox[
+                   {
+                    "RGBColor",
+                    "[",
+                    RowBox[{"0.15", ",", "0.5", ",", "0.85"}],
+                    "]"
+                   }
+                  ],
+                  ",",
+                  RowBox[{"GrayLevel", "[", "0.65", "]"}]
+                 }
+                ],
+                "}"
+               }
+              ]
+             }
+            ],
+            ",",
+            "\[IndentingNewLine]",
+            "  ",
+            RowBox[
+             {
+              "ChartLegends",
+              "->",
+              RowBox[
+               {
+                "{",
+                RowBox[
+                 {
+                  "\"ARMA Model\"",
+                  ",",
+                  "\"Kalman Trend\"",
+                  ",",
+                  "\"Naive Benchmark\""
+                 }
+                ],
+                "}"
+               }
+              ]
+             }
+            ],
+            ",",
+            "\[IndentingNewLine]",
+            "  ",
+            RowBox[
+             {
+              "AxesLabel",
+              "->",
+              RowBox[
+               {
+                "{",
+                RowBox[
+                 {
+                  "\"Rolling Window Number\"",
+                  ",",
+                  "\"Absolute Error (%)\""
+                 }
+                ],
+                "}"
+               }
+              ]
+             }
+            ],
+            ",",
+            "\[IndentingNewLine]",
+            "  ",
+            RowBox[
+             {
+              "PlotLabel",
+              "->",
+              RowBox[
+               {
+                "Style",
+                "[",
+                RowBox[
+                 {
+                  "\"Expected Average Price Forecast Error across 16 Test Windows\"",
+                  ",",
+                  "Bold",
+                  ",",
+                  "14"
+                 }
+                ],
+                "]"
+               }
+              ]
+             }
+            ],
+            ",",
+            "\[IndentingNewLine]",
+            "  ",
+            RowBox[
+             {
+              "GridLines",
+              "->",
+              RowBox[{"{", RowBox[{"None", ",", "Automatic"}], "}"}]
+             }
+            ],
+            ",",
+            RowBox[{"ImageSize", "->", "580"}]
+           }
+          ],
+          "]"
+         }
+        ]
+       }
+      ]
+     }
+    ]
+   ],
+   "Input"
+  ],
+  Cell[
+   BoxData[
+    TagBox[
+     GridBox[
+      {
+       {TemplateBox[{0}, "Spacer1"]},
+       {TemplateBox[{0}, "Spacer1"]}
+      },
+      AutoDelete -> False,
+      FrameStyle ->
+       Directive[
+        LightDarkSwitched[GrayLevel[0.8], GrayLevel[0.48678]],
+        AbsoluteThickness[1]
+       ],
+      GridBoxDividers -> {
+       "Columns" -> {False, {True}, False},
+       "Rows" -> {False, {True}, False}
+      },
+      GridBoxItemSize -> {"Columns" -> {{Fit}}, "Rows" -> {{Automatic}}}
+     ],
+     "Grid"
+    ]
+   ],
+   "Text",
+   "MarkdownDelimiter",
+   ShowStringCharacters -> False,
+   Background -> None
+  ],
+  Cell[
+   "7. Analytical Discussion and Quantitative Insights",
+   "Section"
+  ],
+  Cell[
+   "(A) Why ARMA Models Excel at Expected Average Price Prediction",
+   "Subsection"
+  ],
+  Cell[
+   "1. Mean Reversion to Unconditional Drift: In liquid equities, daily returns mean-revert rapidly to the long-term equity risk premium drift (mu_r approx +0.09%/day for SPY). ARMA forecasts converge to this drift, providing a grounded multi-step price expectation that does not explode.",
+   "Text"
+  ],
+  Cell[
+   "2. Noise Absorption: Transitory daily noise shocks are absorbed by the moving average (MA) polynomial, preventing transient market volatility from distorting multi-week valuation expectations.",
+   "Text"
+  ],
+  Cell[
+   "3. Across 16 rolling windows, ARMA achieved a 1.64% MAPE on average future price, outperforming both the Naive benchmark (2.10%) and the pure linear Kalman trend (2.62%). ",
+   "Text"
+  ],
+  Cell[
+   "(B) The Strengths and Limitations of the Kalman Filter",
+   "Subsection"
+  ],
+  Cell[
+   "1. Zero Phase Lag in Dynamic Trend Extraction: Unlike simple moving averages (which lag price changes by half their window width, e.g. ~10 days for a 20-day SMA), the Kalman filter level mu_t dynamically tracks true shifts with minimal delay while attenuating high-frequency noise.",
+   "Text"
+  ],
+  Cell[
+   "2. Momentum Quantification: The slope state beta_t ($/day) provides an instantaneous measure of trend direction and acceleration.",
+   "Text"
+  ],
+  Cell[
+   TextData[
+    {
+     "3. Extrapolation Risk (Momentum Overshoot): Linear extrapolation (P",
+     StyleBox["{T+h} = mu", FontSlant -> Italic],
+     "T + h * beta_T) assumes uninhibited momentum continuation. If a stock enters the forecast window on a sharp short-term rally, the Kalman filter projects continued linear growth, resulting in overshooting if the market consolidates or pulls back. "
+    }
+   ],
+   "Text"
+  ],
+  Cell[
+   "(C) Quantitative Finance Architecture Recommendation",
+   "Subsection"
+  ],
+  Cell[
+   TextData[
+    {
+     "1. In-Sample Signal Generation: Use the Kalman Filter to extract zero-lag trends (mu",
+     StyleBox[
+      "t) and instantaneous momentum (beta",
+      FontSlant -> Italic
+     ],
+     "t) for regime detection and trade entry/exit triggers."
+    }
+   ],
+   "Text"
+  ],
+  Cell[
+   TextData[
+    {
+     "2. Forward Valuation & Horizon Expectation: Use ARMA on returns (or a Damped-Trend Kalman Filter where beta",
+     StyleBox["{t+1} = phi * beta", FontSlant -> Italic],
+     "t with 0 < phi < 1) when computing expected average future prices, forward strike targets, or risk limits over multi-week horizons."
+    }
+   ],
+   "Text"
+  ]
+ },
+ FrontEndVersion -> "15.0 for Mac OS X ARM (64-bit) (May 19, 2026)",
+ StyleDefinitions -> "Default.nb",
+ ExpressionUUID -> "548d7d38-898a-43a1-b65e-be9b42cae592"
+]
