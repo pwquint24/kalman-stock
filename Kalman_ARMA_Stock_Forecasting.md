@@ -18,7 +18,9 @@ How accurately can ARMA models and Kalman Filter trend models predict the expect
 
 #### (A) The ARMA Process on Stock Returns
 
-Stock price levels $$\mathit{P}_t$$ are non-stationary $$I(1)$$ processes. Direct ARMA estimation on raw prices often fails or yields explosive roots ($$|\phi| \ge 1$$). We therefore model stationary continuously compounded log returns: $$r_t = \ln(P_t / P_{t-1}) = \ln(P_t) - \ln(P_{t-1})$$An $$\text{ARMA}(p, q)$$ process for returns is defined as: $$r_t = c + \sum_{i=1}^{p} \phi_i r_{t-i} + \varepsilon_t + \sum_{j=1}^{q} \theta_j \varepsilon_{t-j}$$Given multi-step forecasted returns $$\{r_{T+1}, \dots, r_{T+H}\}$$, the reconstructed future price trajectory is: $$P_{T+h} = P_T \exp\left(\sum_{i=1}^{h} r_{T+i}\right)$$The expected average future price over horizon $$H$$ is: $$\bar{P}_{\text{ARMA}} = \frac{1}{H} \sum_{h=1}^{H} P_{T+h}$$
+Stock price levels $$\mathit{P}_t$$ are non-stationary $$I(1)$$ processes. Direct ARMA estimation on raw prices often fails or yields explosive roots ($$|\phi| \ge 1$$). We therefore model stationary continuously compounded log returns: $$r_t = \ln(P_t / P_{t-1}) = \ln(P_t) - \ln(P_{t-1})$$. An $$\text{ARMA}(p, q)$$ process for returns is defined as: $$r_t = c + \sum_{i=1}^{p} \phi_i r_{t-i} + \varepsilon_t + \sum_{j=1}^{q} \theta_j \varepsilon_{t-j}$$. 
+Given multi-step forecasted returns $$\{r_{T+1}, \dots, r_{T+H}\}$$, the reconstructed future price trajectory is: $$P_{T+h} = P_T \exp\left(\sum_{i=1}^{h} r_{T+i}\right)$$ 
+The expected average future price over horizon $$H$$ is: $$\bar{P}_{\text{ARMA}} = \frac{1}{H} \sum_{h=1}^{H} P_{T+h}$$
 
 #### (B) The Local Linear Trend (LLT) Kalman Filter
 
@@ -35,6 +37,7 @@ y_t &= \mu_t + \varepsilon_t, & \varepsilon_t &\sim \mathcal{N}(0, \sigma_\varep
 We acquire daily historical data for the S&P 500 ETF (SPY) using Wolfram Language's built-in FinancialData. We convert Quantity expressions to pure numeric values and compute continuously compounded log returns.
 
 ```wl
+In[1]:=
 (* Define stock ticker and evaluation date range *)
 		ticker = "SPY";
 		startDate = {2023, 1, 1};
@@ -52,11 +55,16 @@ We acquire daily historical data for the S&P 500 ETF (SPY) using Wolfram Languag
 		Print["Successfully loaded ", nTotal, " trading days from ", 
 		  DateString[First[tradingDates], {"MonthName", " ", "Year"}], " to ", 
 		  DateString[Last[tradingDates], {"MonthName", " ", "Year"}], "."];
+
+During evaluation of In[1]:= "Fetching historical daily data for ""SPY""..."
+
+During evaluation of In[1]:= "Successfully loaded "502" trading days from ""January 2023"" to ""December 2024""."
 ```
 
 Next, we compute log returns and visualize the historical price trajectory alongside the daily return series.
 
 ```wl
+In[11]:=
 (* Compute log returns *)
 		logPrices = Log[rawPrices];
 		logReturns = Differences[logPrices];
@@ -75,11 +83,22 @@ Next, we compute log returns and visualize the historical price trajectory along
 		  GridLines -> Automatic, ImageSize -> 550];
 		
 		GraphicsColumn[{pPrice, pRet}, ImageSize -> 550]
+
+Out[15]=
+\!\(\*GraphicsBox[
+ {{}, {InsetBox[GraphicsBox[{{}, InterpretationBox[
+       {TagBox[{{}, {}, TagBox[{RGBColor[0.1, 0.4, 0.7], PointSize[0.005], 
+            Thickness[Large], LineBox[CompressedData["«4764»"]]}, 
+           Annotation[#1, "Chartin ... , {550., 322.632}, 
+    BaseStyle -> {Graphics3DBoxOptions -> {SphericalRegion -> False}}]}, {}}, ImageSize -> 550, 
+ Method -> {"IgnoreImageSizeAutomaticLimit" -> True}, 
+ PlotRange -> {{0, 577.5}, {-726.617, 0}}, PlotRangePadding -> Automatic]\)
 ```
 
 We now compute key summary statistics for the daily returns:
 
 ```wl
+In[26]:=
 (* Summary statistics for log returns *)
 		retMean = Mean[logReturns];
 		retStd = StandardDeviation[logReturns];
@@ -89,12 +108,21 @@ We now compute key summary statistics for the daily returns:
 		Dataset[<|
 		  "Sample Size (Days)" -> Length[logReturns], 
 		  "Daily Mean Return" -> NumberForm[retMean, {6, 5}], 
-		  "Annualized Return (x252)" -> NumberForm[retMean * 252 * 100, {4, 2}] <> "%", 
+		  "Annualized Return (x252)" -> Quantity[NumberForm[retMean * 252 * 100, {4, 2}], "%"], 
 		  "Daily Volatility" -> NumberForm[retStd, {6, 5}], 
-		  "Annualized Volatility (xSqrt[252])" -> NumberForm[retStd * Sqrt[252] * 100, {4, 2}] <> "%", 
+		  "Annualized Volatility (xSqrt[252])" -> Quantity[NumberForm[retStd * Sqrt[252] * 100, {4, 2}], "%"], 
 		  "Skewness" -> NumberForm[retSkew, {4, 2}], 
 		  "Kurtosis" -> NumberForm[retKurt, {4, 2}]
 		|>]
+
+Out[30]=
+Dataset[Association["Sample Size (Days)" -> 501, "Daily Mean Return" -> 
+   NumberForm[0.0008605378970277203, {6, 5}], "Annualized Return (x252)" -> 
+   Quantity[NumberForm[21.685555005098553, {4, 2}], "Percent"], 
+  "Daily Volatility" -> NumberForm[0.008118882768401295, {6, 5}], 
+  "Annualized Volatility (xSqrt[252])" -> Quantity[NumberForm[12.888326837326463, {4, 2}], 
+    "Percent"], "Skewness" -> NumberForm[-0.29540789022208036, {4, 2}], 
+  "Kurtosis" -> NumberForm[3.713367866486834, {4, 2}]]]
 ```
 
 ---
@@ -104,6 +132,7 @@ We now compute key summary statistics for the daily returns:
 We partition the dataset into an in-sample training window (450 trading days) and an out-of-sample evaluation window (20 trading days, ~1 calendar month). We fit an ARMA process to stationary returns and forecast the future trajectory.
 
 ```wl
+In[31]:=
 (* Split data into In-Sample Training and Out-of-Sample Testing sets *)
 		nTrain = 450;
 		horizon = 20;
@@ -118,22 +147,32 @@ We partition the dataset into an in-sample training window (450 trading days) an
 		
 		Print["Training sample size: ", Length[trainPrices], " days."];
 		Print["Testing forecast horizon: ", horizon, " days."];
+
+During evaluation of In[31]:= "Training sample size: "450" days."
+
+During evaluation of In[31]:= "Testing forecast horizon: "20" days."
 ```
 
 We now estimate the optimal ARMA model using TimeSeriesModelFit:
 
 ```wl
+In[40]:=
 (* Fit an ARMA model to stationary log returns *)
 		tsmARMA = TimeSeriesModelFit[trainLogReturns, "ARMA"];
 		fittedProcess = tsmARMA["Process"];
 		
 		Print["Fitted ARMA Process:"];
 		fittedProcess
+
+During evaluation of In[40]:= "Fitted ARMA Process:"
+
+Out[43]= MAProcess[0.000945788, {}, 0.000065872]
 ```
 
 We verify the model fit using residual diagnostics:
 
 ```wl
+In[44]:=
 (* ARMA Model Diagnostics *)
 		residuals = Normal[tsmARMA["FitResiduals"]["Values"]];
 		
@@ -145,11 +184,21 @@ We verify the model fit using residual diagnostics:
 		  PlotLabel -> "Residual Distribution", ChartStyle -> RGBColor[0.2, 0.6, 0.8], ImageSize -> 300];
 		
 		GraphicsRow[{pACF, pResHist}, ImageSize -> 600]
+
+Out[47]=
+\!\(\*GraphicsBox[
+ {{}, {InsetBox[GraphicsBox[{{}, InterpretationBox[
+       {TagBox[GraphicsComplexBox[CompressedData["«461»"], {{{}, {}, {}, {RGBColor[0.24, 0.6, 0.8], Opacity[0.3], LineBox[{22, 2}], LineBox[{23, 3}], 
+             LineBox[{25,  ...   {300., 201.061}, BaseStyle -> 
+     {Graphics3DBoxOptions -> {SphericalRegion -> False}}]}, {}}, ImageSize -> 600, 
+ Method -> {"IgnoreImageSizeAutomaticLimit" -> True}, 
+ PlotRange -> {{0, 640.}, {-221.061, 0}}, PlotRangePadding -> Automatic]\)
 ```
 
 Using the fitted ARMA model, we generate multi-step return forecasts and reconstruct the price trajectory:
 
 ```wl
+In[48]:=
 (* Multi-step forward forecasting of returns *)
 		forecastReturns = Normal[TimeSeriesForecast[tsmARMA, {horizon}]["Values"]];
 		
@@ -160,6 +209,8 @@ Using the fitted ARMA model, we generate multi-step return forecasts and reconst
 		(* Compute expected average future price over the 20-day horizon *)
 		armaAvgPrice = Mean[armaPricePath];
 		Print["ARMA Expected Average Future Price: $", NumberForm[armaAvgPrice, {6, 2}]];
+
+During evaluation of In[48]:= "ARMA Expected Average Future Price: $"NumberForm[588.1202334121084, {6, 2}]
 ```
 
 ---
@@ -169,6 +220,7 @@ Using the fitted ARMA model, we generate multi-step return forecasts and reconst
 We implement a 2D Local Linear Trend Kalman Filter in Wolfram Language. The state vector $$x_t = [\mu_t, \beta_t]^\top$$ represents the true unobserved price trend level and its dynamic velocity (slope in \$/day). The filter performs recursive Bayesian prediction and measurement updates, eliminating the phase lag inherent in standard moving averages.
 
 ```wl
+In[53]:=
 (* Pure Wolfram Language Implementation of Local Linear Trend Kalman Filter *)
 		kalmanTrendFilter[data_List, qLevel_ ? NumericQ, qSlope_ ? NumericQ, rNoise_ ? NumericQ] := 
 		 Module[{n = Length[data], mu, beta, p11, p12, p22, k1, k2, y, v, f, 
@@ -221,6 +273,7 @@ We implement a 2D Local Linear Trend Kalman Filter in Wolfram Language. The stat
 We now run the filter on the in-sample stock prices:
 
 ```wl
+In[54]:=
 (* Filter in-sample training prices with Local Linear Trend Kalman Filter *)
 		(* Parameters: qLevel = 1.0, qSlope = 0.05, rNoise = 5.0 *)
 		kfResults = kalmanTrendFilter[trainPrices, 1.0, 0.05, 5.0];
@@ -232,11 +285,18 @@ We now run the filter on the in-sample stock prices:
 		Print["Terminal Kalman Filter State:"];
 		Print["  Extracted Trend Level (mu): $", NumberForm[finalState[[1]], {6, 2}]];
 		Print["  Extracted Trend Velocity (beta): $", NumberForm[finalState[[2]], {4, 2}], " per trading day"];
+
+During evaluation of In[54]:= "Terminal Kalman Filter State:"
+
+During evaluation of In[54]:= "  Extracted Trend Level (mu): $"NumberForm[582.4693902361935, {6, 2}]
+
+During evaluation of In[54]:= "  Extracted Trend Velocity (beta): $"NumberForm[1.182080134229612, {4, 2}]" per trading day"
 ```
 
 To demonstrate the zero-lag characteristic of the Kalman filter, we compare it against a standard 20-day Simple Moving Average (SMA):
 
 ```wl
+In[61]:=
 (* Calculate standard 20-day Simple Moving Average (SMA) for benchmark *)
 		sma20 = MovingAverage[trainPrices, 20];
 		
@@ -263,11 +323,14 @@ To demonstrate the zero-lag characteristic of the Kalman filter, we compare it a
 		  Filling -> Axis, GridLines -> Automatic, ImageSize -> 550];
 		
 		GraphicsColumn[{pCompare, pSlope}, ImageSize -> 550]
+
+Out[64]= ![cell image](attachment://content-hxxd8)
 ```
 
 We now extrapolate the Kalman trend forward into the test period:
 
 ```wl
+In[65]:=
 (* Forward price path extrapolation from terminal Kalman state *)
 		mu0 = finalState[[1]];
 		beta0 = finalState[[2]];
@@ -276,6 +339,8 @@ We now extrapolate the Kalman trend forward into the test period:
 		(* Analytical expected average future price over horizon H *)
 		kalmanAvgPrice = mu0 + ((horizon + 1) / 2.0) * beta0;
 		Print["Kalman Expected Average Future Price: $", NumberForm[kalmanAvgPrice, {6, 2}]];
+
+During evaluation of In[65]:= "Kalman Expected Average Future Price: $"NumberForm[594.8812316456044, {6, 2}]
 ```
 
 ---
@@ -285,6 +350,7 @@ We now extrapolate the Kalman trend forward into the test period:
 We compare the ARMA and Kalman Filter forecasts against the actual realized out-of-sample stock prices over the 20-day test horizon. We also include the Naive Random Walk Benchmark (where future expected price equals the last observed price $$\mathit{P}_T$$).
 
 ```wl
+In[70]:=
 (* Compute realized metrics and benchmark *)
 		actualAvgPrice = Mean[testPrices];
 		naiveAvgPrice = pLast;
@@ -311,6 +377,7 @@ We compare the ARMA and Kalman Filter forecasts against the actual realized out-
 We format and display the comparison table:
 
 ```wl
+In[85]:=
 (* Display Performance Comparison Table *)
 		Grid[{
 		  {"Metric", "Actual Realized", "ARMA Model", "Kalman Trend Filter", "Naive (Random Walk)"}, 
@@ -326,9 +393,9 @@ We format and display the comparison table:
 		   NumberForm[naiveAvgPrice - actualAvgPrice, {4, 2}]}, 
 		  {"Absolute Error (%)", 
 		   "0.00%", 
-		   NumberForm[armaAvgErrPct, {4, 2}] <> "%", 
-		   NumberForm[kalmanAvgErrPct, {4, 2}] <> "%", 
-		   NumberForm[naiveAvgErrPct, {4, 2}] <> "%"}, 
+		   Quantity[NumberForm[armaAvgErrPct, {4, 2}], "%"], 
+		   Quantity[NumberForm[kalmanAvgErrPct, {4, 2}] , "%"], 
+		   Quantity[NumberForm[naiveAvgErrPct, {4, 2}], "%"]}, 
 		  {"Path MAE ($)", 
 		   "-", 
 		   NumberForm[armaMAE, {4, 2}], 
@@ -340,11 +407,17 @@ We format and display the comparison table:
 		   NumberForm[kalmanRMSE, {4, 2}], 
 		   NumberForm[naiveRMSE, {4, 2}]}
 		}, Frame -> All, Background -> {None, {1 -> LightGray, 2 -> None, 3 -> None, 4 -> LightYellow, 5 -> None, 6 -> None}}, Alignment -> Left]
+
+Out[85]=
+|                              |                   |                                         |                                         |                                          |
+| :--------------------------- | :---------------- | :-------------- ... 6                      | 7.32550048828125                         |
+| "Path RMSE ($)"              | "-"               | 9.169699161218928                       | 13.774084301376304                      | 9.399184533405622                        |
 ```
 
 We visualize the forecast paths alongside actual realized prices and dashed mean lines:
 
 ```wl
+In[86]:=
 (* Visualization of Out-of-Sample Forecasts vs. Actual Price Trajectory *)
 		recentLookback = 40;
 		historySegment = trainPrices[[-recentLookback ;; -1]];
@@ -386,6 +459,16 @@ We visualize the forecast paths alongside actual realized prices and dashed mean
 		      {"Recent History", "Actual Realized", "ARMA Forecast", "Kalman Trend Forecast", "Naive Benchmark"}], 
 		    Below]
 		]
+
+Out[90]=
+\!\(\*GraphicsBox[
+ {{{}, InterpretationBox[
+    {TagBox[{{}, {}, TagBox[{GrayLevel[0.4], PointSize[NCache[Rational[7, 360], 
+           0.019]], Thickness[Large], LineBox[CompressedData["«425»"]\
+]}, Annotation[#1, "Charting`Private`Tag#1"] & ]},  ...  Trading Days Ahead)\"", Bold, 14, 
+    StripOnInput -> False], TraditionalForm], PlotRange -> All, PlotRangeClipping -> True, 
+ PlotRangePadding -> {{Scaled[0.02], Scaled[0.02]}, {Scaled[0.05], Scaled[0.05]}}, 
+ Ticks -> {Automatic, Automatic}]\)
 ```
 
 ---
@@ -403,6 +486,7 @@ In each window:
 3. Errors relative to realized prices are systematically recorded.
 
 ```wl
+In[91]:=
 (* Walk-Forward Rolling Evaluation Engine *)
 		windowLookback = 250;
 		evalHorizon = 20;
@@ -453,11 +537,14 @@ In each window:
 		];
 		
 		Print["Completed Walk-Forward Backtest across ", Length[rollingResults], " evaluation windows."];
+
+During evaluation of In[91]:= "Completed Walk-Forward Backtest across "16" evaluation windows."
 ```
 
 We now compute aggregate statistics across all 16 evaluation windows:
 
 ```wl
+In[108]:=
 (* Aggregate Statistical Comparison across all 16 Windows *)
 		meanArmaMAPE = Mean[rollingResults[[All, "ARMA_MAPE"]]];
 		meanKalmanMAPE = Mean[rollingResults[[All, "Kalman_MAPE"]]];
@@ -477,13 +564,13 @@ We now compute aggregate statistics across all 16 evaluation windows:
 		Grid[{
 		  {"Evaluation Metric", "ARMA Model", "Kalman Trend Filter", "Naive Random Walk"}, 
 		  {"Mean Absolute % Error (MAPE)", 
-		   NumberForm[meanArmaMAPE, {4, 2}] <> "%", 
-		   NumberForm[meanKalmanMAPE, {4, 2}] <> "%", 
-		   NumberForm[meanNaiveMAPE, {4, 2}] <> "%"}, 
+		   Quantity[NumberForm[meanArmaMAPE, {4, 2}], "%"], 
+		   Quantity[NumberForm[meanKalmanMAPE, {4, 2}], "%"], 
+		   Quantity[NumberForm[meanNaiveMAPE, {4, 2}], "%"]}, 
 		  {"Median Absolute % Error", 
-		   NumberForm[medArmaMAPE, {4, 2}] <> "%", 
-		   NumberForm[medKalmanMAPE, {4, 2}] <> "%", 
-		   NumberForm[medNaiveMAPE, {4, 2}] <> "%"}, 
+		   Quantity[NumberForm[medArmaMAPE, {4, 2}], "%"], 
+		   Quantity[NumberForm[medKalmanMAPE, {4, 2}], "%"], 
+		   Quantity[NumberForm[medNaiveMAPE, {4, 2}], "%"]}, 
 		  {"Root Mean Squared Error ($)", 
 		   "$" <> ToString@NumberForm[rmseArma, {4, 2}], 
 		   "$" <> ToString@NumberForm[rmseKalman, {4, 2}], 
@@ -493,11 +580,17 @@ We now compute aggregate statistics across all 16 evaluation windows:
 		   ToString[winRateKalman] <> "%", 
 		   "-"}
 		}, Frame -> All, Background -> {None, {1 -> LightGray, 2 -> LightGreen, 3 -> None, 4 -> None, 5 -> None}}, Alignment -> Left]
+
+Out[119]=
+|                                |                                         |                                         |                                         |
+| :----------------------------- | :-------------------------------------- | :--------- ...  | "$21.50"                                | "$13.20"                                |
+| "Win Rate vs. Naive Benchmark" | "75%"                                   | "56%"                                   | "-"                                     |
 ```
 
 We visualize the window-by-window forecast error distribution using a grouped bar chart:
 
 ```wl
+In[120]:=
 (* Grouped Bar Chart of Prediction Error Percentage per Window *)
 		windowLabels = rollingResults[[All, "Window"]];
 		armaErrors = rollingResults[[All, "ARMA_MAPE"]];
@@ -511,6 +604,17 @@ We visualize the window-by-window forecast error distribution using a grouped ba
 		  AxesLabel -> {"Rolling Window Number", "Absolute Error (%)"}, 
 		  PlotLabel -> Style["Expected Average Price Forecast Error across 16 Test Windows", Bold, 14], 
 		  GridLines -> {None, Automatic}, ImageSize -> 580]
+
+Out[124]=
+\!\(\*TemplateBox[
+ {GraphicsBox[{{Opacity[0], PointBox[{{0.221, 0.}, {68.055, 0.}}]}, 
+    {{}, {{{}, {{{Directive[EdgeForm[Directive[Thickness[Small], Opacity[0.364]]], 
+           RGBColor[0.85, 0.25, 0.25]], TagBox[TooltipBox[
+            TagBo ... lse, 
+    GridBoxItemSize -> Automatic, BaselinePosition -> {1, 1}] & ), Editable -> True, 
+ InterpretationFunction -> 
+  (RowBox[{"Legended", "[", RowBox[{#1, ",", RowBox[{"Placed", "[", RowBox[{#2, ",", "After"}], 
+         "]"}]}], "]"}] & )]\)
 ```
 
 ---
