@@ -1,0 +1,92 @@
+#+title: Kalman Filtering vs. ARMA Models for Stock Forecasting
+#+author: Andrew Patrick
+#+language: en
+
+A comparative framework in Wolfram Language for extracting dynamic trend
+from stock prices and forecasting future prices, using two distinct
+mathematical paradigms: classical ARMA econometrics and Kalman
+state-space filtering.
+
+* Overview
+
+Predicting future stock prices and extracting dynamic trends are two
+foundational problems in quantitative finance. This project implements
+and rigorously compares:
+
+1. *ARMA models* (Box-Jenkins) -- fit to stationary continuously
+   compounded log returns, then projected forward toward the
+   unconditional drift rate.
+2. *Kalman filtering* (Local Linear Trend state-space model) -- estimates
+   unobserved hidden states (trend level and momentum) from noisy
+   sequential observations, updating recursively with optimal Bayesian
+   variance reduction.
+
+The research question: how accurately can each model predict the
+*expected average price* over an investment horizon (e.g. a 20-day
+trading month)?
+
+* Mathematical Specification
+
+** ARMA on Log Returns
+
+Prices are \(I(1)\) and non-stationary, so we model log returns instead:
+
+\[
+r_t = \ln(P_t / P_{t-1})
+\]
+
+An ARMA(p, q) process for returns, reconstructed to a price path:
+
+\[
+P_{T+h} = P_T \exp\!\left(\sum_{i=1}^{h} r_{T+i}\right)
+\]
+
+** Local Linear Trend Kalman Filter
+
+Observation equation and state transitions for level \(\mu_t\) and
+slope \(\beta_t\):
+
+\[
+y_t = \mu_t + \epsilon_t, \quad
+\mu_{t+1} = \mu_t + \beta_t + \eta_\mu, \quad
+\beta_{t+1} = \beta_t + \eta_\beta
+\]
+
+Forward extrapolation is analytic, giving the expected average price
+over horizon \(H\):
+
+\[
+\bar{P}_{\text{Kalman}} = \mu_T + \frac{H+1}{2}\,\beta_T
+\]
+
+* Contents
+
+| File                                        | Description                             |
+|---------------------------------------------+-----------------------------------------|
+| =Kalman_ARMA_Stock_Forecasting.org=         | Literate source document (primary)      |
+| =Kalman_ARMA_Stock_Forecasting.nb=          | Wolfram notebook                        |
+| =Kalman_ARMA_Stock_Forecasting.vsnb=        | VS Code notebook                        |
+| =Kalman_ARMA_Stock_Forecasting.md=          | Markdown export                         |
+
+The document covers:
+
+1. Executive summary and theoretical framework
+2. Stock data acquisition and preprocessing (SPY, via =FinancialData=)
+3. ARMA model estimation on returns
+4. Kalman filtering for dynamic trend extraction
+5. Out-of-sample performance comparison (single window)
+6. Walk-forward backtesting (rolling window evaluation)
+7. Analytical discussion and quantitative insights
+
+* Requirements
+
+- Wolfram Language / Mathematica (Wolfram Engine is sufficient)
+- Network access for =FinancialData= price retrieval
+
+To evaluate the document, open the =.nb= notebook, or use =org-babel=
+in Emacs with a Wolfram Language backend. The =.org= file begins with a
+package-import block intended for =sci-wolfram= users.
+
+* License
+
+Distributed under the GNU General Public License v3. See [[file:LICENSE][LICENSE]].
