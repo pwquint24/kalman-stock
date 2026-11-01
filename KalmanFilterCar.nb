@@ -2013,7 +2013,7 @@ Notebook[
                        {
                         "{",
                         RowBox[
-                         {"xPred", ",", "PPred", ",", "y", ",", "S", ",", "K"}
+                         {"xPred", ",", "PPred", ",", "y", ",", "S", ",", "Kk"}
                         ],
                         "}"
                        }
@@ -2121,7 +2121,7 @@ Notebook[
                         "  ",
                         RowBox[
                          {
-                          "K",
+                          "Kk",
                           "=",
                           RowBox[
                            {
@@ -2150,7 +2150,7 @@ Notebook[
                           "{",
                           RowBox[
                            {
-                            RowBox[{"xPred", "+", RowBox[{"K", " ", ".", " ", "y"}]}],
+                            RowBox[{"xPred", "+", RowBox[{"Kk", " ", ".", " ", "y"}]}],
                             ",",
                             RowBox[
                              {
@@ -2168,7 +2168,7 @@ Notebook[
                                    }
                                   ],
                                   "-",
-                                  RowBox[{"K", " ", ".", " ", "H"}]
+                                  RowBox[{"Kk", " ", ".", " ", "H"}]
                                  }
                                 ],
                                 ")"
@@ -2203,8 +2203,7 @@ Notebook[
            }
           ]
          ],
-         "Input",
-         CellLabel -> "In[1]:="
+         "Input"
         ],
         Cell["Let's look at the matrices: ", "CodeText"],
         Cell[

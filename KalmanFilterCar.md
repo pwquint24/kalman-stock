@@ -114,15 +114,15 @@ Let us turn the equations above into Wolfram Language code.
 	Q = qa ^ 2 Outer[Times, G, G];
 	
 	(* One prediction + update step of a linear Kalman filter *)
-	kalmanStep[{x_, P_}, z_, F_, H_, Q_, R_] := Module[{xPred, PPred, y, S, K}, 
+	kalmanStep[{x_, P_}, z_, F_, H_, Q_, R_] := Module[{xPred, PPred, y, S, Kk}, 
 	  (* Prediction *)
 	  xPred = F . x;
 	  PPred = F . P . Transpose[F] + Q;
 	  (* Measurement update *)
 	  y = z - H . xPred;                     (* innovation *)
 	  S = H . PPred . Transpose[H] + R;      (* innovation covariance *)
-	  K = PPred . Transpose[H] . Inverse[S]; (* Kalman gain *)
-	  {xPred + K . y, (IdentityMatrix[Length[x]] - K . H) . PPred}
+	  Kk = PPred . Transpose[H] . Inverse[S]; (* Kalman gain *)
+	  {xPred + Kk . y, (IdentityMatrix[Length[x]] - Kk . H) . PPred}
 	];
 ```
 
