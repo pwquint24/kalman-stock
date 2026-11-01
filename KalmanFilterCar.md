@@ -2,7 +2,7 @@
 
 A Kalman filter is a **state estimation** algorithm. It is very well suited to tracking a moving car, and tracking a car around a race track is a good way to understand what a Kalman filter does and why it is useful.
 
-The basic idea is that we have two sources of information:
+The basic idea is that we have two sources of information-
 
 1. A **motion model** -- the car cannot jump arbitrarily from one position to another. Its current position and velocity give a good indication of where it will be a short time later.
 
@@ -96,7 +96,6 @@ The filter calculates this balance automatically at every observation.
 Let us turn the equations above into Wolfram Language code.
 
 ```wl
-In[1]:=
 (* Time step between observations *)
 	dt = 0.1;
 	
@@ -130,7 +129,6 @@ In[1]:=
 Let's look at the matrices:
 
 ```wl
-In[9]:=
 Grid[{{"F", MatrixForm[F]}, {"H", MatrixForm[H]}, {"Q", MatrixForm[Q]}, {"R", MatrixForm[R]}}, 
 	 Frame -> All, Alignment -> Left]
 ```
@@ -138,7 +136,6 @@ Grid[{{"F", MatrixForm[F]}, {"H", MatrixForm[H]}, {"Q", MatrixForm[Q]}, {"R", Ma
 Now run the filter on the table of measurements:
 
 ```wl
-In[10]:=
 step1D[{x_, P_}, z_] := kalmanStep[{x, P}, z, F, H, Q, R];
 	
 	(* Observations from the table above *)
@@ -161,7 +158,6 @@ Grid[Prepend[
 	  {"t (s)", "Actual (m)", "Measured (m)", "Filtered (m)", "v est (m/s)", "a est (m/s^2)"}], 
 	  Frame -> All]
 
-In[21]:=
 times = Range[0, 5] * dt;
 ListPlot[{
 	   Transpose[{times, posEst}], 
@@ -188,7 +184,6 @@ There is a trade-off: if the process noise is too low, the filter is slow to rec
 Let's demonstrate this with a longer simulation in which the car accelerates, brakes, and cruises:
 
 ```wl
-In[23]:=
 SeedRandom[42];
 dt = 0.1;
 n = 120; (* 12 seconds *)
@@ -218,7 +213,6 @@ posEst = xHistory[[All, 1]];
 velEst = xHistory[[All, 2]];
 accEst = xHistory[[All, 3]];
 
-In[39]:=
 ListPlot[{Transpose[{time, posEst}], Transpose[{time, measurements}], Transpose[{time, pTrue}]}, 
 	  Joined -> True, PlotStyle -> {Blue, {Red, Opacity[0.5]}, Black}, 
 	  PlotLegends -> {"Filtered", "Measured", "Actual"}, 
@@ -229,7 +223,6 @@ ListPlot[{Transpose[{time, posEst}], Transpose[{time, measurements}], Transpose[
 The velocity and acceleration are never measured, yet the filter recovers them from position alone:
 
 ```wl
-In[40]:=
 Grid[{{ListPlot[{Transpose[{time, velEst}], Transpose[{time, vTrue}]}, 
 	      Joined -> True, PlotStyle -> {Blue, Black}, 
 	      PlotLegends -> {"Filtered", "Actual"}, 
@@ -247,7 +240,6 @@ Grid[{{ListPlot[{Transpose[{time, velEst}], Transpose[{time, vTrue}]},
 So far we have assumed a straight line. For a real race track we extend the model to two dimensions: instead of a single position we estimate $$\mathbf{x}_t = \begin{pmatrix} x \\ y \\ v_x \\ v_y \\ a_x \\ a_y \end{pmatrix}$$applying the same constant-acceleration model independently to the two coordinate directions, with measurements $$\mathbf{z}_t = \begin{pmatrix} x_{\text{measured}} \\ y_{\text{measured}} \end{pmatrix}$$The full implementation:
 
 ```wl
-In[41]:=
 SeedRandom[7];
 dt = 0.1;
 n = 300; (* 30 seconds *)
@@ -298,7 +290,6 @@ Print["RMS error  filtered vs true: ", RootMeanSquare[Flatten[{xFilt - xTrue, yF
 We should see three trajectories -- the actual one, the noisy measured one, and the filtered one:
 
 ```wl
-In[68]:=
 Show[
 	  ListPlot[Transpose[{xMeas, yMeas}], PlotStyle -> {Red, PointSize[0.008], Opacity[0.6]}], 
 	  ListPlot[Transpose[{xTrue, yTrue}], PlotStyle -> {Black, Thick}, Joined -> True], 

@@ -26,7 +26,7 @@ Notebook[
       "Text"
      ],
      Cell[
-      "The basic idea is that we have two sources of information:",
+      "The basic idea is that we have two sources of information-",
       "Text"
      ],
      Cell[

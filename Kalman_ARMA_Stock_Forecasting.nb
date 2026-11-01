@@ -35,7 +35,7 @@ Notebook[
          "Text"
         ],
         Cell[
-         "2. Kalman Filtering and State-Space Models: Rooted in control theory and Bayesian dynamic linear models, Kalman filters estimate unobserved hidden states (the true trend level and instantaneous momentum/drift) from noisy sequential observations, updating estimates recursively with optimal Bayesian variance reduction. ",
+         "2. Kalman Filtering and State-Space Models. Rooted in control theory and Bayesian dynamic linear models, Kalman filters estimate unobserved hidden states (the true trend level and instantaneous momentum/drift) from noisy sequential observations, updating estimates recursively with optimal Bayesian variance reduction.  ",
          "Text"
         ],
         Cell[
