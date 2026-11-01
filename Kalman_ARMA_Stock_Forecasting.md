@@ -8,11 +8,129 @@ Predicting future stock prices and extracting dynamic trends are two foundationa
 
 1. Autoregressive Moving Average (ARMA) Models: Rooted in classical econometric time series analysis (Box-Jenkins methodology), ARMA models capture stationary autocorrelation structures in returns and project them forward toward the unconditional long-term drift rate.
 
-2. Kalman Filtering and State-Space Models: Rooted in control theory and Bayesian dynamic linear models, Kalman filters estimate unobserved hidden states (the true trend level and instantaneous momentum/drift) from noisy sequential observations, updating estimates recursively with optimal Bayesian variance reduction.
+2. Kalman Filtering and State-Space Models. Rooted in control theory and Bayesian dynamic linear models, Kalman filters estimate unobserved hidden states (the true trend level and instantaneous momentum/drift) from noisy sequential observations, updating estimates recursively with optimal Bayesian variance reduction.
 
 ### Research Objective
 
 How accurately can ARMA models and Kalman Filter trend models predict the expected future price of a stock (specifically, the expected average price over an investment horizon, such as a 20-day trading month)?
+
+## Explanation of terms
+
+### 1. Stationary
+
+A time series is **stationary** if its statistical behavior does not change over time.
+
+Informally, this means things like:
+
+* the **average level** stays roughly constant,
+
+* the **variance** stays roughly constant,
+
+* the relationship between today and past values depends only on the **lag**, not on the calendar date.
+
+For a stationary series $$x_t$$:
+
+* $$E[x_t] = \mu$$ does not depend on $$t$$,
+
+* $$\mathrm{Var}(x_t) = \sigma^2$$ does not depend on $$t$$,
+
+* $$\mathrm{Cov}(x_t, x_{t-k})$$ depends only on $$k$$, not on $$t$$.
+
+### In finance
+
+* **Stock prices** are usually **not stationary** because they tend to wander over time and can have changing levels.
+
+* **Returns** are often treated as **approximately stationary** over shorter periods.
+
+Example:
+
+* Price series: 100, 105, 110, 120, 130 -> trending upward, not stationary.
+
+* Return series: $$0.01, -0.005, 0.008, 0.002, -0.004$$ -> fluctuates around a roughly stable mean, more plausibly stationary.
+
+ARMA models are typically built for **stationary series**, which is why they are more naturally applied to returns than raw prices.
+
+---
+
+### 2. Autocorrelation
+
+**Autocorrelation** means correlation of a series with its own past values.
+
+It measures whether knowing past observations helps predict the current one.
+
+For lag $$k$$, the autocorrelation is roughly: $$\rho_k = \mathrm{Corr}(x_t, x_{t-k})$$
+
+#### Interpretation
+
+* **Positive autocorrelation**: high values tend to follow high values, low follow low.
+
+* **Negative autocorrelation**: high values tend to be followed by low values, and vice versa.
+
+* **Near zero autocorrelation**: the series has little linear dependence on its own past.
+
+#### In finance
+
+For returns:
+
+* If returns have positive lag-1 autocorrelation, an up day may slightly increase the chance of another up day.
+
+* If returns have negative lag-1 autocorrelation, reversals are more likely.
+
+ARMA models are designed precisely to capture this kind of dependence structure:
+
+* **AR part**: dependence on past values,
+
+* **MA part**: dependence on past shocks/errors.
+
+---
+
+### 3. Drift rate
+
+The **drift rate** is the long-run average tendency of a process to move upward or downward.
+
+In finance, drift is the expected average return per period.
+
+If returns $$r_t$$ have mean $$\mu$$, then $$\mu$$ is the drift rate.
+
+#### Example
+
+If a stock has an average daily return of 0.0005, then its daily drift is: $$\mu = 0.0005$$ or about $$0.05\%$$ per day.
+
+#### Why \[OpenCurlyDoubleQuote]project toward the unconditional long-term drift rate\[CloseCurlyDoubleQuote]?
+
+In a stationary ARMA model, temporary deviations caused by shocks fade over time. As forecast horizon increases, predictions tend to move back toward the series\[CloseCurlyQuote] **unconditional mean**.
+
+So if returns follow a stationary ARMA process with mean $$\mu$$, then: $$E[r_{t+h} \mid \text{information at } t] \to \mu \quad \text{as } h \to \infty$$That $$\mu$$ is what is meant here by the **long-term drift rate**.
+
+---
+
+### Putting it together
+
+In the sentence:
+
+"ARMA models capture stationary autocorrelation structures in returns and project them forward toward the unconditional long-term drift rate."
+
+it means:
+
+* we model **returns**, not usually raw prices, because returns are closer to **stationary**;
+
+* we use ARMA to describe how current returns relate to **past returns and past shocks** through **autocorrelation**;
+
+* when forecasting far into the future, the effect of recent shocks dies out, and the forecast tends back to the series\[CloseCurlyQuote] average return, i.e. the **drift rate**.
+
+---
+
+### Short intuitive summary
+
+* **Stationary** = the series behaves in a statistically stable way over time.
+
+* **Autocorrelation** = the series is related to its own past.
+
+* **Drift rate** = the long-run average direction/speed of movement.
+
+If you want, I can next explain this same paragraph in **plain English for stock traders**, or show how these concepts appear in **Wolfram Language code**.
+
+##
 
 ### Mathematical Specification
 
@@ -22,13 +140,19 @@ Stock price levels $$\mathit{P}_t$$ are non-stationary $$I(1)$$ processes. Direc
 Given multi-step forecasted returns $$\{r_{T+1}, \dots, r_{T+H}\}$$, the reconstructed future price trajectory is: $$P_{T+h} = P_T \exp\left(\sum_{i=1}^{h} r_{T+i}\right)$$ 
 The expected average future price over horizon $$H$$ is: $$\bar{P}_{\text{ARMA}} = \frac{1}{H} \sum_{h=1}^{H} P_{T+h}$$
 
+In this formulation, Subscript[P, t] denotes the observed stock price at time $$t$$, while Subscript[r, t] is the continuously compounded log return between periods $$t-1$$ and $$t$$. The constant term $$c$$ captures the average drift in returns. The coefficients $$\phi_i$$ are the autoregressive parameters, measuring how current returns depend on their own past values $$r_{t-i}$$, and the coefficients $$\theta_j$$ are the moving-average parameters, capturing the effect of past shocks $$\varepsilon_{t-j}$$ on current returns. The disturbance term $$\varepsilon_t$$ represents an unpredictable innovation at time $$t$$, typically assumed to have mean zero, constant variance, and no serial correlation. The orders $$p$$ and $$q$$ specify how many lagged returns and lagged shocks are included in the model, respectively.
+
+For forecasting, $$T$$ denotes the last observed time period and $$H$$ is the forecast horizon, so $$r_{T+1}, \dots, r_{T+H}$$ are the predicted future returns over the next $$H$$ periods. Because log returns are additive across time, the cumulative return over $$h$$ future steps is $$\sum_{i=1}^{h} r_{T+i}$$, which is then exponentiated to convert back to the price scale. Multiplying by the last observed price Subscript[P, T] gives the implied forecasted price $$P_{T+h}$$. Finally, $$\bar{P}_{\text{ARMA}}$$ is the arithmetic average of the forecasted prices across all $$H$$ future periods, providing a single summary measure of the expected price level over the forecast window.
+
 #### (B) The Local Linear Trend (LLT) Kalman Filter
 
-The state-space model decomposes price $$y_t = P_t$$ into an unobserved dynamic level $$\mu_t$$ and velocity/slope $$\beta_t$$: $$\begin{aligned}
+The state-space model decomposes price $$y_t = P_t$$ into an unobserved dynamic level $$\mu_t$$ and velocity/slope
+ $$\beta_t$$: $$\begin{aligned}
 y_t &= \mu_t + \varepsilon_t, & \varepsilon_t &\sim \mathcal{N}(0, \sigma_\varepsilon^2) \\
 \mu_{t+1} &= \mu_t + \beta_t + \eta^\mu_t, & \eta^\mu_t &\sim \mathcal{N}(0, \sigma_\mu^2) \\
 \beta_{t+1} &= \beta_t + \eta^\beta_t, & \eta^\beta_t &\sim \mathcal{N}(0, \sigma_\beta^2)
-\end{aligned}$$Forward extrapolation $$h$$ steps ahead from terminal state $$(\mu_T, \beta_T)$$: $$P_{\text{Kalman}, T+h} = \mu_T + h\,\beta_T$$The expected average future price over horizon $$H$$ is analytically: $$\bar{P}_{\text{Kalman}} = \frac{1}{H} \sum_{h=1}^{H} (\mu_T + h\,\beta_T) = \mu_T + \frac{H + 1}{2}\,\beta_T$$
+\end{aligned}$$
+ Forward extrapolation $$h$$ steps ahead from terminal state $$(\mu_T, \beta_T)$$: $$P_{\text{Kalman}, T+h} = \mu_T + h\,\beta_T$$The expected average future price over horizon $$H$$ is analytically: $$\bar{P}_{\text{Kalman}} = \frac{1}{H} \sum_{h=1}^{H} (\mu_T + h\,\beta_T) = \mu_T + \frac{H + 1}{2}\,\beta_T$$
 
 ---
 
@@ -37,7 +161,6 @@ y_t &= \mu_t + \varepsilon_t, & \varepsilon_t &\sim \mathcal{N}(0, \sigma_\varep
 We acquire daily historical data for the S&P 500 ETF (SPY) using Wolfram Language's built-in FinancialData. We convert Quantity expressions to pure numeric values and compute continuously compounded log returns.
 
 ```wl
-In[1]:=
 (* Define stock ticker and evaluation date range *)
 		ticker = "SPY";
 		startDate = {2023, 1, 1};
@@ -55,50 +178,41 @@ In[1]:=
 		Print["Successfully loaded ", nTotal, " trading days from ", 
 		  DateString[First[tradingDates], {"MonthName", " ", "Year"}], " to ", 
 		  DateString[Last[tradingDates], {"MonthName", " ", "Year"}], "."];
-
-During evaluation of In[1]:= "Fetching historical daily data for ""SPY""..."
-
-During evaluation of In[1]:= "Successfully loaded "502" trading days from ""January 2023"" to ""December 2024""."
 ```
 
 Next, we compute log returns and visualize the historical price trajectory alongside the daily return series.
 
 ```wl
-In[11]:=
 (* Compute log returns *)
 		logPrices = Log[rawPrices];
-		logReturns = Differences[logPrices];
-		
-		(* Plot historical prices and daily returns *)
+
+logReturns = Differences[logPrices];
+```
+
+Test for stationarity, a small p value indicates stationarity
+
+```wl
+UnitRootTest[logReturns, Automatic, "TestDataTable"]
+
+(* Plot historical prices and daily returns *)
 		pPrice = DateListPlot[pricesTS, 
 		  PlotStyle -> Directive[Thick, RGBColor[0.1, 0.4, 0.7]], 
 		  PlotLabel -> Style[ticker <> " Daily Adjusted Close Price (2023 - 2024)", Bold, 14], 
 		  FrameLabel -> {None, "Price ($)"}, 
 		  GridLines -> Automatic, ImageSize -> 550];
-		
-		pRet = ListLinePlot[logReturns, 
+
+pRet = ListLinePlot[logReturns, 
 		  PlotStyle -> Directive[RGBColor[0.8, 0.3, 0.2]], 
 		  PlotLabel -> Style[ticker <> " Daily Log Returns", Bold, 14], 
 		  AxesLabel -> {"Trading Day", "Log Return"}, 
 		  GridLines -> Automatic, ImageSize -> 550];
-		
-		GraphicsColumn[{pPrice, pRet}, ImageSize -> 550]
 
-Out[15]=
-\!\(\*GraphicsBox[
- {{}, {InsetBox[GraphicsBox[{{}, InterpretationBox[
-       {TagBox[{{}, {}, TagBox[{RGBColor[0.1, 0.4, 0.7], PointSize[0.005], 
-            Thickness[Large], LineBox[CompressedData["«4764»"]]}, 
-           Annotation[#1, "Chartin ... , {550., 322.632}, 
-    BaseStyle -> {Graphics3DBoxOptions -> {SphericalRegion -> False}}]}, {}}, ImageSize -> 550, 
- Method -> {"IgnoreImageSizeAutomaticLimit" -> True}, 
- PlotRange -> {{0, 577.5}, {-726.617, 0}}, PlotRangePadding -> Automatic]\)
+GraphicsColumn[{pPrice, pRet}, ImageSize -> 550]
 ```
 
 We now compute key summary statistics for the daily returns:
 
 ```wl
-In[26]:=
 (* Summary statistics for log returns *)
 		retMean = Mean[logReturns];
 		retStd = StandardDeviation[logReturns];
@@ -114,15 +228,6 @@ In[26]:=
 		  "Skewness" -> NumberForm[retSkew, {4, 2}], 
 		  "Kurtosis" -> NumberForm[retKurt, {4, 2}]
 		|>]
-
-Out[30]=
-Dataset[Association["Sample Size (Days)" -> 501, "Daily Mean Return" -> 
-   NumberForm[0.0008605378970277203, {6, 5}], "Annualized Return (x252)" -> 
-   Quantity[NumberForm[21.685555005098553, {4, 2}], "Percent"], 
-  "Daily Volatility" -> NumberForm[0.008118882768401295, {6, 5}], 
-  "Annualized Volatility (xSqrt[252])" -> Quantity[NumberForm[12.888326837326463, {4, 2}], 
-    "Percent"], "Skewness" -> NumberForm[-0.29540789022208036, {4, 2}], 
-  "Kurtosis" -> NumberForm[3.713367866486834, {4, 2}]]]
 ```
 
 ---
@@ -132,7 +237,6 @@ Dataset[Association["Sample Size (Days)" -> 501, "Daily Mean Return" ->
 We partition the dataset into an in-sample training window (450 trading days) and an out-of-sample evaluation window (20 trading days, ~1 calendar month). We fit an ARMA process to stationary returns and forecast the future trajectory.
 
 ```wl
-In[31]:=
 (* Split data into In-Sample Training and Out-of-Sample Testing sets *)
 		nTrain = 450;
 		horizon = 20;
@@ -147,32 +251,22 @@ In[31]:=
 		
 		Print["Training sample size: ", Length[trainPrices], " days."];
 		Print["Testing forecast horizon: ", horizon, " days."];
-
-During evaluation of In[31]:= "Training sample size: "450" days."
-
-During evaluation of In[31]:= "Testing forecast horizon: "20" days."
 ```
 
 We now estimate the optimal ARMA model using TimeSeriesModelFit:
 
 ```wl
-In[40]:=
 (* Fit an ARMA model to stationary log returns *)
 		tsmARMA = TimeSeriesModelFit[trainLogReturns, "ARMA"];
 		fittedProcess = tsmARMA["Process"];
 		
 		Print["Fitted ARMA Process:"];
 		fittedProcess
-
-During evaluation of In[40]:= "Fitted ARMA Process:"
-
-Out[43]= MAProcess[0.000945788, {}, 0.000065872]
 ```
 
 We verify the model fit using residual diagnostics:
 
 ```wl
-In[44]:=
 (* ARMA Model Diagnostics *)
 		residuals = Normal[tsmARMA["FitResiduals"]["Values"]];
 		
@@ -184,21 +278,13 @@ In[44]:=
 		  PlotLabel -> "Residual Distribution", ChartStyle -> RGBColor[0.2, 0.6, 0.8], ImageSize -> 300];
 		
 		GraphicsRow[{pACF, pResHist}, ImageSize -> 600]
-
-Out[47]=
-\!\(\*GraphicsBox[
- {{}, {InsetBox[GraphicsBox[{{}, InterpretationBox[
-       {TagBox[GraphicsComplexBox[CompressedData["«461»"], {{{}, {}, {}, {RGBColor[0.24, 0.6, 0.8], Opacity[0.3], LineBox[{22, 2}], LineBox[{23, 3}], 
-             LineBox[{25,  ...   {300., 201.061}, BaseStyle -> 
-     {Graphics3DBoxOptions -> {SphericalRegion -> False}}]}, {}}, ImageSize -> 600, 
- Method -> {"IgnoreImageSizeAutomaticLimit" -> True}, 
- PlotRange -> {{0, 640.}, {-221.061, 0}}, PlotRangePadding -> Automatic]\)
 ```
+
+The autocorrelation values are all of magnitude 0.1 or less, so there is weak autocorrelation (which is what we want), and the residual distribution is fairly close to a normal distribution, also what we want. This suggests our ARMA model is capturing most of the meaningful information, and the rest is, indeed, random.
 
 Using the fitted ARMA model, we generate multi-step return forecasts and reconstruct the price trajectory:
 
 ```wl
-In[48]:=
 (* Multi-step forward forecasting of returns *)
 		forecastReturns = Normal[TimeSeriesForecast[tsmARMA, {horizon}]["Values"]];
 		
@@ -209,8 +295,6 @@ In[48]:=
 		(* Compute expected average future price over the 20-day horizon *)
 		armaAvgPrice = Mean[armaPricePath];
 		Print["ARMA Expected Average Future Price: $", NumberForm[armaAvgPrice, {6, 2}]];
-
-During evaluation of In[48]:= "ARMA Expected Average Future Price: $"NumberForm[588.1202334121084, {6, 2}]
 ```
 
 ---
@@ -219,61 +303,40 @@ During evaluation of In[48]:= "ARMA Expected Average Future Price: $"NumberForm[
 
 We implement a 2D Local Linear Trend Kalman Filter in Wolfram Language. The state vector $$x_t = [\mu_t, \beta_t]^\top$$ represents the true unobserved price trend level and its dynamic velocity (slope in \$/day). The filter performs recursive Bayesian prediction and measurement updates, eliminating the phase lag inherent in standard moving averages.
 
+##
+
 ```wl
-In[53]:=
-(* Pure Wolfram Language Implementation of Local Linear Trend Kalman Filter *)
-		kalmanTrendFilter[data_List, qLevel_ ? NumericQ, qSlope_ ? NumericQ, rNoise_ ? NumericQ] := 
-		 Module[{n = Length[data], mu, beta, p11, p12, p22, k1, k2, y, v, f, 
-		         filteredMu, filteredBeta}, 
-		  (* Initialize state with first observed price and zero slope *)
-		  mu = data[[1]];
-		  beta = 0.0;
-		  (* Initial state uncertainty covariance *)
-		  p11 = 1000.0; p12 = 0.0; p22 = 100.0;
-		  
-		  filteredMu = ConstantArray[0.0, n];
-		  filteredBeta = ConstantArray[0.0, n];
-		  
-		  Do[
-		    y = data[[t]];
-		    
-		    (* 1. Predict Step *)
-		    mu = mu + beta;
-		    p11 = p11 + 2.0 * p12 + p22 + qLevel;
-		    p12 = p12 + p22;
-		    p22 = p22 + qSlope;
-		    
-		    (* 2. Measurement Update Step *)
-		    v = y - mu;           (* Innovation residual *)
-		    f = p11 + rNoise;     (* Innovation variance *)
-		    k1 = p11 / f;         (* Kalman gain for level *)
-		    k2 = p12 / f;         (* Kalman gain for slope *)
-		    
-		    mu = mu + k1 * v;
-		    beta = beta + k2 * v;
-		    
-		    (* Covariance update *)
-		    p22 = p22 - k2 * p12;
-		    p12 = p12 - k1 * p12;
-		    p11 = p11 - k1 * p11;
-		    
-		    filteredMu[[t]] = mu;
-		    filteredBeta[[t]] = beta;
-		  , {t, 1, n}];
-		  
-		  <|
-		    "Trend" -> filteredMu, 
-		    "Slope" -> filteredBeta, 
-		    "FinalState" -> {mu, beta}, 
-		    "FinalCov" -> {{p11, p12}, {p12, p22}}
-		  |>
-		 ];
+(* Built-In Implementation of Local Linear Trend Kalman Filter *)
+kalmanTrendFilter[data_List, qLevel_ ? NumericQ, qSlope_ ? NumericQ, rNoise_ ? NumericQ] := 
+Module[{ssm, q, r, estimator, resp, trend, slope, n = Length[data]}, 
+  ssm = StateSpaceModel[
+    {
+      {{1., 1.}, {0., 1.}}, 
+      IdentityMatrix[2], 
+      {{1., 0.}}, 
+      {{0., 0.}}
+    }, 
+    SamplingPeriod -> 1, 
+    SystemsModelLabels -> None
+  ];
+  q = {{qLevel, 0.}, {0., qSlope}};
+  r = {{rNoise}};
+  estimator = Quiet @ KalmanEstimator[ssm, {q, r}];
+  resp = OutputResponse[{estimator, {data[[1]], 0.}}, data];
+  trend = resp[[1]];
+  slope = resp[[2]];
+  <|
+    "Trend" -> trend, 
+    "Slope" -> slope, 
+    "FinalState" -> {Last[trend], Last[slope]}, 
+    "Estimator" -> estimator
+  |>
+ ];
 ```
 
 We now run the filter on the in-sample stock prices:
 
 ```wl
-In[54]:=
 (* Filter in-sample training prices with Local Linear Trend Kalman Filter *)
 		(* Parameters: qLevel = 1.0, qSlope = 0.05, rNoise = 5.0 *)
 		kfResults = kalmanTrendFilter[trainPrices, 1.0, 0.05, 5.0];
@@ -285,18 +348,11 @@ In[54]:=
 		Print["Terminal Kalman Filter State:"];
 		Print["  Extracted Trend Level (mu): $", NumberForm[finalState[[1]], {6, 2}]];
 		Print["  Extracted Trend Velocity (beta): $", NumberForm[finalState[[2]], {4, 2}], " per trading day"];
-
-During evaluation of In[54]:= "Terminal Kalman Filter State:"
-
-During evaluation of In[54]:= "  Extracted Trend Level (mu): $"NumberForm[582.4693902361935, {6, 2}]
-
-During evaluation of In[54]:= "  Extracted Trend Velocity (beta): $"NumberForm[1.182080134229612, {4, 2}]" per trading day"
 ```
 
 To demonstrate the zero-lag characteristic of the Kalman filter, we compare it against a standard 20-day Simple Moving Average (SMA):
 
 ```wl
-In[61]:=
 (* Calculate standard 20-day Simple Moving Average (SMA) for benchmark *)
 		sma20 = MovingAverage[trainPrices, 20];
 		
@@ -323,14 +379,11 @@ In[61]:=
 		  Filling -> Axis, GridLines -> Automatic, ImageSize -> 550];
 		
 		GraphicsColumn[{pCompare, pSlope}, ImageSize -> 550]
-
-Out[64]= ![cell image](attachment://content-hxxd8)
 ```
 
 We now extrapolate the Kalman trend forward into the test period:
 
 ```wl
-In[65]:=
 (* Forward price path extrapolation from terminal Kalman state *)
 		mu0 = finalState[[1]];
 		beta0 = finalState[[2]];
@@ -339,8 +392,6 @@ In[65]:=
 		(* Analytical expected average future price over horizon H *)
 		kalmanAvgPrice = mu0 + ((horizon + 1) / 2.0) * beta0;
 		Print["Kalman Expected Average Future Price: $", NumberForm[kalmanAvgPrice, {6, 2}]];
-
-During evaluation of In[65]:= "Kalman Expected Average Future Price: $"NumberForm[594.8812316456044, {6, 2}]
 ```
 
 ---
@@ -350,7 +401,6 @@ During evaluation of In[65]:= "Kalman Expected Average Future Price: $"NumberFor
 We compare the ARMA and Kalman Filter forecasts against the actual realized out-of-sample stock prices over the 20-day test horizon. We also include the Naive Random Walk Benchmark (where future expected price equals the last observed price $$\mathit{P}_T$$).
 
 ```wl
-In[70]:=
 (* Compute realized metrics and benchmark *)
 		actualAvgPrice = Mean[testPrices];
 		naiveAvgPrice = pLast;
@@ -377,7 +427,6 @@ In[70]:=
 We format and display the comparison table:
 
 ```wl
-In[85]:=
 (* Display Performance Comparison Table *)
 		Grid[{
 		  {"Metric", "Actual Realized", "ARMA Model", "Kalman Trend Filter", "Naive (Random Walk)"}, 
@@ -407,17 +456,11 @@ In[85]:=
 		   NumberForm[kalmanRMSE, {4, 2}], 
 		   NumberForm[naiveRMSE, {4, 2}]}
 		}, Frame -> All, Background -> {None, {1 -> LightGray, 2 -> None, 3 -> None, 4 -> LightYellow, 5 -> None, 6 -> None}}, Alignment -> Left]
-
-Out[85]=
-|                              |                   |                                         |                                         |                                          |
-| :--------------------------- | :---------------- | :-------------- ... 6                      | 7.32550048828125                         |
-| "Path RMSE ($)"              | "-"               | 9.169699161218928                       | 13.774084301376304                      | 9.399184533405622                        |
 ```
 
 We visualize the forecast paths alongside actual realized prices and dashed mean lines:
 
 ```wl
-In[86]:=
 (* Visualization of Out-of-Sample Forecasts vs. Actual Price Trajectory *)
 		recentLookback = 40;
 		historySegment = trainPrices[[-recentLookback ;; -1]];
@@ -459,16 +502,6 @@ In[86]:=
 		      {"Recent History", "Actual Realized", "ARMA Forecast", "Kalman Trend Forecast", "Naive Benchmark"}], 
 		    Below]
 		]
-
-Out[90]=
-\!\(\*GraphicsBox[
- {{{}, InterpretationBox[
-    {TagBox[{{}, {}, TagBox[{GrayLevel[0.4], PointSize[NCache[Rational[7, 360], 
-           0.019]], Thickness[Large], LineBox[CompressedData["«425»"]\
-]}, Annotation[#1, "Charting`Private`Tag#1"] & ]},  ...  Trading Days Ahead)\"", Bold, 14, 
-    StripOnInput -> False], TraditionalForm], PlotRange -> All, PlotRangeClipping -> True, 
- PlotRangePadding -> {{Scaled[0.02], Scaled[0.02]}, {Scaled[0.05], Scaled[0.05]}}, 
- Ticks -> {Automatic, Automatic}]\)
 ```
 
 ---
@@ -486,7 +519,6 @@ In each window:
 3. Errors relative to realized prices are systematically recorded.
 
 ```wl
-In[91]:=
 (* Walk-Forward Rolling Evaluation Engine *)
 		windowLookback = 250;
 		evalHorizon = 20;
@@ -537,14 +569,11 @@ In[91]:=
 		];
 		
 		Print["Completed Walk-Forward Backtest across ", Length[rollingResults], " evaluation windows."];
-
-During evaluation of In[91]:= "Completed Walk-Forward Backtest across "16" evaluation windows."
 ```
 
 We now compute aggregate statistics across all 16 evaluation windows:
 
 ```wl
-In[108]:=
 (* Aggregate Statistical Comparison across all 16 Windows *)
 		meanArmaMAPE = Mean[rollingResults[[All, "ARMA_MAPE"]]];
 		meanKalmanMAPE = Mean[rollingResults[[All, "Kalman_MAPE"]]];
@@ -580,17 +609,11 @@ In[108]:=
 		   ToString[winRateKalman] <> "%", 
 		   "-"}
 		}, Frame -> All, Background -> {None, {1 -> LightGray, 2 -> LightGreen, 3 -> None, 4 -> None, 5 -> None}}, Alignment -> Left]
-
-Out[119]=
-|                                |                                         |                                         |                                         |
-| :----------------------------- | :-------------------------------------- | :--------- ...  | "$21.50"                                | "$13.20"                                |
-| "Win Rate vs. Naive Benchmark" | "75%"                                   | "56%"                                   | "-"                                     |
 ```
 
 We visualize the window-by-window forecast error distribution using a grouped bar chart:
 
 ```wl
-In[120]:=
 (* Grouped Bar Chart of Prediction Error Percentage per Window *)
 		windowLabels = rollingResults[[All, "Window"]];
 		armaErrors = rollingResults[[All, "ARMA_MAPE"]];
@@ -604,17 +627,6 @@ In[120]:=
 		  AxesLabel -> {"Rolling Window Number", "Absolute Error (%)"}, 
 		  PlotLabel -> Style["Expected Average Price Forecast Error across 16 Test Windows", Bold, 14], 
 		  GridLines -> {None, Automatic}, ImageSize -> 580]
-
-Out[124]=
-\!\(\*TemplateBox[
- {GraphicsBox[{{Opacity[0], PointBox[{{0.221, 0.}, {68.055, 0.}}]}, 
-    {{}, {{{}, {{{Directive[EdgeForm[Directive[Thickness[Small], Opacity[0.364]]], 
-           RGBColor[0.85, 0.25, 0.25]], TagBox[TooltipBox[
-            TagBo ... lse, 
-    GridBoxItemSize -> Automatic, BaselinePosition -> {1, 1}] & ), Editable -> True, 
- InterpretationFunction -> 
-  (RowBox[{"Legended", "[", RowBox[{#1, ",", RowBox[{"Placed", "[", RowBox[{#2, ",", "After"}], 
-         "]"}]}], "]"}] & )]\)
 ```
 
 ---
