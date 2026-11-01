@@ -1,0 +1,5269 @@
+(* Content-type: application/vnd.wolfram.mathematica *)
+
+(*** Wolfram Notebook File ***)
+(* http://www.wolfram.com/nb *)
+
+(* Created By: SaveReadableNotebook *)
+(* https://resources.wolframcloud.com/FunctionRepository/resources/SaveReadableNotebook *)
+
+Notebook[
+ {
+  Cell[
+   CellGroupData[
+    {
+     Cell[
+      "Kalman Filter: Tracking a Car Around a Race Track",
+      "Title"
+     ],
+     Cell[
+      TextData[
+       {
+        "A Kalman filter is a ",
+        StyleBox["state estimation", FontWeight -> Bold],
+        " algorithm. It is very well suited to tracking a moving car, and tracking a car around a race track is a good way to understand what a Kalman filter does and why it is useful."
+       }
+      ],
+      "Text"
+     ],
+     Cell[
+      "The basic idea is that we have two sources of information:",
+      "Text"
+     ],
+     Cell[
+      TextData[
+       {
+        "1. A ",
+        StyleBox["motion model", FontWeight -> Bold],
+        " \[LongDash] the car cannot jump arbitrarily from one position to another. Its current position and velocity give a good indication of where it will be a short time later."
+       }
+      ],
+      "Text"
+     ],
+     Cell[
+      TextData[
+       {
+        "2. ",
+        StyleBox["Measurements", FontWeight -> Bold],
+        " \[LongDash] noisy observations of the car's position, perhaps from GPS or a camera."
+       }
+      ],
+      "Text"
+     ],
+     Cell[
+      "The Kalman filter combines these two sources to estimate the car's actual position and velocity. Crucially, it does not simply average the measurements: it adjusts how much it trusts the measurements relative to its prediction, based on their estimated uncertainty. ",
+      "Text"
+     ],
+     Cell[
+      CellGroupData[
+       {
+        Cell["1. Set up the problem", "Section"],
+        Cell[
+         "Start with a simplified example: the car is travelling along a straight section of track, and we observe its position every 0.1 seconds. ",
+         "Text"
+        ],
+        Cell[
+         BoxData[
+          PaneBox[
+           PaneBox[
+            StyleBox[
+             TagBox[
+              TagBox[
+               GridBox[
+                {
+                 {
+                  TagBox["\"Time (s)\"", HoldForm],
+                  TagBox["\"Actual position (m)\"", HoldForm],
+                  TagBox["\"Measured position (m)\"", HoldForm]
+                 },
+                 {"\"0.0\"", "\"0\"", "\"1.2\""},
+                 {"\"0.1\"", "\"2\"", "\"1.4\""},
+                 {"\"0.2\"", "\"4\"", "\"5.1\""},
+                 {"\"0.3\"", "\"6\"", "\"5.0\""},
+                 {"\"0.4\"", "\"8\"", "\"9.3\""},
+                 {"\"0.5\"", "\"10\"", "\"9.1\""}
+                },
+                GridBoxAlignment -> {"Columns" -> {Left, Left, {Left}}, "Rows" -> {{Baseline}}},
+                GridBoxDividers -> {
+                 "Columns" -> {{False}},
+                 "Rows" -> {False, True, {False}, False}
+                },
+                GridBoxSpacings -> {
+                 "Columns" -> {Offset[0.28], {Offset[2.1]}, Offset[0.28]},
+                 "Rows" -> {Offset[0.2], {Offset[0.4]}, Offset[0.2]}
+                }
+               ],
+               {None, OutputFormsDump`HeadedColumns}
+              ],
+              Function[
+               BoxForm`e$,
+               TableForm[
+                BoxForm`e$,
+                TableHeadings -> {
+                 None,
+                 {
+                  "Time (s)",
+                  "Actual position (m)",
+                  "Measured position (m)"
+                 }
+                }
+               ]
+              ]
+             ],
+             "Text",
+             StripOnInput -> False,
+             ShowStringCharacters -> False
+            ],
+            ImageMargins -> {{0, 0}, {5, 5}}
+           ],
+           ImageMargins -> {{0, 0}, {5, 5}}
+          ]
+         ],
+         "TextTableForm",
+         "Text"
+        ],
+        Cell[
+         "The measured positions are noisy: sometimes they underestimate the position, sometimes they overestimate it. We want to estimate the actual position, but also the velocity and acceleration of the car. ",
+         "Text"
+        ]
+       },
+       Open
+      ]
+     ],
+     Cell[
+      CellGroupData[
+       {
+        Cell["2. Define the state vector", "Section"],
+        Cell[
+         TextData[
+          {
+           "The first step is to decide what information we want to estimate. We define a state vector: ",
+           Cell[
+            BoxData[
+             FormBox[
+              TemplateBox[
+               <|
+                "boxes" ->
+                 FormBox[
+                  RowBox[
+                   {
+                    SubscriptBox[
+                     StyleBox["x", FontSlant -> "Bold"],
+                     StyleBox["t", "TI"]
+                    ],
+                    "\[LongEqual]",
+                    RowBox[
+                     {
+                      "(",
+                      Cell[
+                       BoxData[
+                        FormBox[
+                         GridBox[
+                          {
+                           {
+                            Cell[
+                             TextData[
+                              {
+                               " ",
+                               Cell[
+                                BoxData[
+                                 SubscriptBox[StyleBox["p", "TI"], StyleBox["t", "TI"]]
+                                ],
+                                "InlineFormula"
+                               ],
+                               " "
+                              }
+                             ]
+                            ]
+                           },
+                           {
+                            Cell[
+                             TextData[
+                              {
+                               " ",
+                               Cell[
+                                BoxData[
+                                 SubscriptBox[StyleBox["v", "TI"], StyleBox["t", "TI"]]
+                                ],
+                                "InlineFormula"
+                               ],
+                               " "
+                              }
+                             ]
+                            ]
+                           },
+                           {
+                            Cell[
+                             TextData[
+                              {
+                               " ",
+                               Cell[
+                                BoxData[
+                                 SubscriptBox[StyleBox["a", "TI"], StyleBox["t", "TI"]]
+                                ],
+                                "InlineFormula"
+                               ],
+                               " "
+                              }
+                             ]
+                            ]
+                           }
+                          }
+                         ],
+                         TraditionalForm
+                        ]
+                       ]
+                      ],
+                      ")"
+                     }
+                    ]
+                   }
+                  ],
+                  TraditionalForm
+                 ],
+                "errors" -> { },
+                "input" -> "\\mathbf{x}_t = \\begin{pmatrix} p_t \\\\ v_t \\\\ a_t \\end{pmatrix}",
+                "state" -> "Boxes"
+               |>,
+               "TeXAssistantTemplate"
+              ],
+              TraditionalForm
+             ]
+            ]
+           ],
+           "where ",
+           Cell[
+            BoxData[
+             FormBox[
+              TemplateBox[
+               <|
+                "boxes" ->
+                 FormBox[
+                  SubscriptBox[StyleBox["p", "TI"], StyleBox["t", "TI"]],
+                  TraditionalForm
+                 ],
+                "errors" -> { },
+                "input" -> "p_t",
+                "state" -> "Boxes"
+               |>,
+               "TeXAssistantTemplate"
+              ],
+              TraditionalForm
+             ]
+            ]
+           ],
+           " is the position, ",
+           Cell[
+            BoxData[
+             FormBox[
+              TemplateBox[
+               <|
+                "boxes" ->
+                 FormBox[
+                  SubscriptBox[StyleBox["v", "TI"], StyleBox["t", "TI"]],
+                  TraditionalForm
+                 ],
+                "errors" -> { },
+                "input" -> "v_t",
+                "state" -> "Boxes"
+               |>,
+               "TeXAssistantTemplate"
+              ],
+              TraditionalForm
+             ]
+            ]
+           ],
+           " is the velocity and ",
+           Cell[
+            BoxData[
+             FormBox[
+              TemplateBox[
+               <|
+                "boxes" ->
+                 FormBox[
+                  SubscriptBox[StyleBox["a", "TI"], StyleBox["t", "TI"]],
+                  TraditionalForm
+                 ],
+                "errors" -> { },
+                "input" -> "a_t",
+                "state" -> "Boxes"
+               |>,
+               "TeXAssistantTemplate"
+              ],
+              TraditionalForm
+             ]
+            ]
+           ],
+           " is the acceleration."
+          }
+         ],
+         "Text"
+        ],
+        Cell[
+         "Notice that acceleration is included even though we never measure it directly. This is one of the important features of a Kalman filter: it can estimate quantities that are not directly observed, provided they influence the quantities we do observe. ",
+         "Text"
+        ]
+       },
+       Open
+      ]
+     ],
+     Cell[
+      CellGroupData[
+       {
+        Cell["3. The motion model", "Section"],
+        Cell[
+         TextData[
+          {
+           "We need a model describing how the state changes over time. Using elementary kinematics, assuming acceleration is approximately constant over a short interval ",
+           Cell[
+            BoxData[
+             FormBox[
+              TemplateBox[
+               <|
+                "boxes" ->
+                 FormBox[
+                  RowBox[{"\[CapitalDelta]", StyleBox["t", "TI"]}],
+                  TraditionalForm
+                 ],
+                "errors" -> { },
+                "input" -> "\\Delta t",
+                "state" -> "Boxes"
+               |>,
+               "TeXAssistantTemplate"
+              ],
+              TraditionalForm
+             ]
+            ]
+           ],
+           ": ",
+           Cell[
+            BoxData[
+             FormBox[
+              TemplateBox[
+               <|
+                "boxes" ->
+                 FormBox[
+                  Cell[
+                   BoxData[
+                    FormBox[
+                     GridBox[
+                      {
+                       {
+                        Cell[
+                         TextData[
+                          {
+                           " ",
+                           Cell[
+                            BoxData[
+                             SubscriptBox[
+                              StyleBox["p", "TI"],
+                              RowBox[{StyleBox["t", "TI"], "+", "1"}]
+                             ]
+                            ],
+                            "InlineFormula"
+                           ],
+                           " "
+                          }
+                         ]
+                        ],
+                        Cell[
+                         TextData[
+                          {
+                           " ",
+                           Cell[
+                            BoxData[
+                             RowBox[
+                              {
+                               "\[LongEqual]",
+                               SubscriptBox[StyleBox["p", "TI"], StyleBox["t", "TI"]],
+                               "+",
+                               SubscriptBox[StyleBox["v", "TI"], StyleBox["t", "TI"]],
+                               "\[CapitalDelta]",
+                               StyleBox["t", "TI"],
+                               "+",
+                               FractionBox["1", "2"],
+                               SubscriptBox[StyleBox["a", "TI"], StyleBox["t", "TI"]],
+                               "\[CapitalDelta]",
+                               SuperscriptBox[StyleBox["t", "TI"], "2"]
+                              }
+                             ]
+                            ],
+                            "InlineFormula"
+                           ],
+                           " "
+                          }
+                         ]
+                        ]
+                       },
+                       {
+                        Cell[
+                         TextData[
+                          {
+                           " ",
+                           Cell[
+                            BoxData[
+                             SubscriptBox[
+                              StyleBox["v", "TI"],
+                              RowBox[{StyleBox["t", "TI"], "+", "1"}]
+                             ]
+                            ],
+                            "InlineFormula"
+                           ],
+                           " "
+                          }
+                         ]
+                        ],
+                        Cell[
+                         TextData[
+                          {
+                           " ",
+                           Cell[
+                            BoxData[
+                             RowBox[
+                              {
+                               "\[LongEqual]",
+                               SubscriptBox[StyleBox["v", "TI"], StyleBox["t", "TI"]],
+                               "+",
+                               SubscriptBox[StyleBox["a", "TI"], StyleBox["t", "TI"]],
+                               "\[CapitalDelta]",
+                               StyleBox["t", "TI"]
+                              }
+                             ]
+                            ],
+                            "InlineFormula"
+                           ],
+                           " "
+                          }
+                         ]
+                        ]
+                       },
+                       {
+                        Cell[
+                         TextData[
+                          {
+                           " ",
+                           Cell[
+                            BoxData[
+                             SubscriptBox[
+                              StyleBox["a", "TI"],
+                              RowBox[{StyleBox["t", "TI"], "+", "1"}]
+                             ]
+                            ],
+                            "InlineFormula"
+                           ],
+                           " "
+                          }
+                         ]
+                        ],
+                        Cell[
+                         TextData[
+                          {
+                           " ",
+                           Cell[
+                            BoxData[
+                             RowBox[
+                              {
+                               "\[LongEqual]",
+                               SubscriptBox[StyleBox["a", "TI"], StyleBox["t", "TI"]]
+                              }
+                             ]
+                            ],
+                            "InlineFormula"
+                           ],
+                           " "
+                          }
+                         ]
+                        ]
+                       }
+                      }
+                     ],
+                     TraditionalForm
+                    ]
+                   ]
+                  ],
+                  TraditionalForm
+                 ],
+                "errors" -> { },
+                "input" -> "\\begin{aligned}\np_{t+1} &= p_t + v_t\\Delta t + \\frac{1}{2}a_t\\Delta t^2 \\\\\nv_{t+1} &= v_t + a_t\\Delta t \\\\\na_{t+1} &= a_t\n\\end{aligned}",
+                "state" -> "Boxes"
+               |>,
+               "TeXAssistantTemplate"
+              ],
+              TraditionalForm
+             ]
+            ]
+           ],
+           "These three equations can be written as one matrix multiplication, ",
+           Cell[
+            BoxData[
+             FormBox[
+              TemplateBox[
+               <|
+                "boxes" ->
+                 FormBox[
+                  RowBox[
+                   {
+                    SubscriptBox[
+                     StyleBox["x", FontSlant -> "Bold"],
+                     RowBox[{StyleBox["t", "TI"], "+", "1"}]
+                    ],
+                    "\[LongEqual]",
+                    StyleBox["F", FontSlant -> "Bold"],
+                    " ",
+                    SubscriptBox[
+                     StyleBox["x", FontSlant -> "Bold"],
+                     StyleBox["t", "TI"]
+                    ]
+                   }
+                  ],
+                  TraditionalForm
+                 ],
+                "errors" -> { },
+                "input" -> "\\mathbf{x}_{t+1}=\\mathbf{F}\\,\\mathbf{x}_t",
+                "state" -> "Boxes"
+               |>,
+               "TeXAssistantTemplate"
+              ],
+              TraditionalForm
+             ]
+            ]
+           ],
+           "where ",
+           Cell[
+            BoxData[
+             FormBox[
+              TemplateBox[
+               <|
+                "boxes" ->
+                 FormBox[
+                  StyleBox["F", FontSlant -> "Bold"],
+                  TraditionalForm
+                 ],
+                "errors" -> { },
+                "input" -> "\\mathbf{F}",
+                "state" -> "Boxes"
+               |>,
+               "TeXAssistantTemplate"
+              ],
+              TraditionalForm
+             ]
+            ]
+           ],
+           " is the ",
+           StyleBox["state transition matrix", FontWeight -> Bold],
+           ": ",
+           Cell[
+            BoxData[
+             FormBox[
+              TemplateBox[
+               <|
+                "boxes" ->
+                 FormBox[
+                  RowBox[
+                   {
+                    StyleBox["F", FontSlant -> "Bold"],
+                    "\[LongEqual]",
+                    RowBox[
+                     {
+                      "(",
+                      Cell[
+                       BoxData[
+                        FormBox[
+                         GridBox[
+                          {
+                           {
+                            Cell[TextData[{" ", Cell["1", "InlineFormula"], " "}]],
+                            Cell[
+                             TextData[
+                              {
+                               " ",
+                               Cell[
+                                BoxData[RowBox[{"\[CapitalDelta]", StyleBox["t", "TI"]}]],
+                                "InlineFormula"
+                               ],
+                               " "
+                              }
+                             ]
+                            ],
+                            Cell[
+                             TextData[
+                              {
+                               " ",
+                               Cell[
+                                BoxData[
+                                 RowBox[
+                                  {
+                                   FractionBox["1", "2"],
+                                   "\[CapitalDelta]",
+                                   SuperscriptBox[StyleBox["t", "TI"], "2"]
+                                  }
+                                 ]
+                                ],
+                                "InlineFormula"
+                               ],
+                               " "
+                              }
+                             ]
+                            ]
+                           },
+                           {
+                            Cell[TextData[{" ", Cell["0", "InlineFormula"], " "}]],
+                            Cell[TextData[{" ", Cell["1", "InlineFormula"], " "}]],
+                            Cell[
+                             TextData[
+                              {
+                               " ",
+                               Cell[
+                                BoxData[RowBox[{"\[CapitalDelta]", StyleBox["t", "TI"]}]],
+                                "InlineFormula"
+                               ],
+                               " "
+                              }
+                             ]
+                            ]
+                           },
+                           {
+                            Cell[TextData[{" ", Cell["0", "InlineFormula"], " "}]],
+                            Cell[TextData[{" ", Cell["0", "InlineFormula"], " "}]],
+                            Cell[TextData[{" ", Cell["1", "InlineFormula"], " "}]]
+                           }
+                          }
+                         ],
+                         TraditionalForm
+                        ]
+                       ]
+                      ],
+                      ")"
+                     }
+                    ]
+                   }
+                  ],
+                  TraditionalForm
+                 ],
+                "errors" -> { },
+                "input" -> "\\mathbf{F} = \\begin{pmatrix}\n1 & \\Delta t & \\frac{1}{2}\\Delta t^2 \\\\\n0 & 1 & \\Delta t \\\\\n0 & 0 & 1\n\\end{pmatrix}",
+                "state" -> "Boxes"
+               |>,
+               "TeXAssistantTemplate"
+              ],
+              TraditionalForm
+             ]
+            ]
+           ],
+           "For our example with ",
+           Cell[
+            BoxData[
+             FormBox[
+              TemplateBox[
+               <|
+                "boxes" ->
+                 FormBox[
+                  RowBox[
+                   {
+                    "\[CapitalDelta]",
+                    StyleBox["t", "TI"],
+                    "\[LongEqual]",
+                    "0.1"
+                   }
+                  ],
+                  TraditionalForm
+                 ],
+                "errors" -> { },
+                "input" -> "\\Delta t = 0.1",
+                "state" -> "Boxes"
+               |>,
+               "TeXAssistantTemplate"
+              ],
+              TraditionalForm
+             ]
+            ]
+           ],
+           ": ",
+           Cell[
+            BoxData[
+             FormBox[
+              TemplateBox[
+               <|
+                "boxes" ->
+                 FormBox[
+                  RowBox[
+                   {
+                    StyleBox["F", FontSlant -> "Bold"],
+                    "\[LongEqual]",
+                    RowBox[
+                     {
+                      "(",
+                      Cell[
+                       BoxData[
+                        FormBox[
+                         GridBox[
+                          {
+                           {
+                            Cell[TextData[{" ", Cell["1", "InlineFormula"], " "}]],
+                            Cell[TextData[{" ", Cell["0.1", "InlineFormula"], " "}]],
+                            Cell[TextData[{" ", Cell["0.005", "InlineFormula"], " "}]]
+                           },
+                           {
+                            Cell[TextData[{" ", Cell["0", "InlineFormula"], " "}]],
+                            Cell[TextData[{" ", Cell["1", "InlineFormula"], " "}]],
+                            Cell[TextData[{" ", Cell["0.1", "InlineFormula"], " "}]]
+                           },
+                           {
+                            Cell[TextData[{" ", Cell["0", "InlineFormula"], " "}]],
+                            Cell[TextData[{" ", Cell["0", "InlineFormula"], " "}]],
+                            Cell[TextData[{" ", Cell["1", "InlineFormula"], " "}]]
+                           }
+                          }
+                         ],
+                         TraditionalForm
+                        ]
+                       ]
+                      ],
+                      ")"
+                     }
+                    ]
+                   }
+                  ],
+                  TraditionalForm
+                 ],
+                "errors" -> { },
+                "input" -> "\\mathbf{F} = \\begin{pmatrix}\n1 & 0.1 & 0.005 \\\\\n0 & 1 & 0.1 \\\\\n0 & 0 & 1\n\\end{pmatrix}",
+                "state" -> "Boxes"
+               |>,
+               "TeXAssistantTemplate"
+              ],
+              TraditionalForm
+             ]
+            ]
+           ],
+           "There is an important qualification: the car's acceleration is variable. Assuming constant acceleration forever would be unrealistic, so we allow the acceleration to change \[LongDash] which we do next. "
+          }
+         ],
+         "Text"
+        ]
+       },
+       Open
+      ]
+     ],
+     Cell[
+      CellGroupData[
+       {
+        Cell["4. Allow for variable acceleration", "Section"],
+        Cell[
+         "We do not actually believe acceleration remains constant. The driver might accelerate out of a corner, brake before the next corner, or maintain a steady speed.",
+         "Text"
+        ],
+        Cell[
+         TextData[
+          {
+           "We therefore introduce some uncertainty into the motion model, described by the ",
+           StyleBox[
+            "process noise covariance matrix",
+            FontWeight -> Bold
+           ],
+           " ",
+           Cell[
+            BoxData[
+             FormBox[
+              TemplateBox[
+               <|
+                "boxes" ->
+                 FormBox[
+                  StyleBox["Q", FontSlant -> "Bold"],
+                  TraditionalForm
+                 ],
+                "errors" -> { },
+                "input" -> "\\mathbf{Q}",
+                "state" -> "Boxes"
+               |>,
+               "TeXAssistantTemplate"
+              ],
+              TraditionalForm
+             ]
+            ]
+           ],
+           "."
+          }
+         ],
+         "Text"
+        ],
+        Cell[
+         TextData[
+          {
+           "Conceptually, ",
+           Cell[
+            BoxData[
+             FormBox[
+              TemplateBox[
+               <|
+                "boxes" ->
+                 FormBox[
+                  StyleBox["Q", FontSlant -> "Bold"],
+                  TraditionalForm
+                 ],
+                "errors" -> { },
+                "input" -> "\\mathbf{Q}",
+                "state" -> "Boxes"
+               |>,
+               "TeXAssistantTemplate"
+              ],
+              TraditionalForm
+             ]
+            ]
+           ],
+           " tells the filter how much we expect the motion model to be wrong: "
+          }
+         ],
+         "Text"
+        ],
+        Cell[
+         TextData[
+          {
+           StyleBox["Small process noise", FontWeight -> Bold],
+           ": acceleration changes slowly, so the motion model is fairly accurate."
+          }
+         ],
+         "Item"
+        ],
+        Cell[
+         TextData[
+          {
+           StyleBox["Large process noise", FontWeight -> Bold],
+           ": acceleration is allowed to change considerably between observations."
+          }
+         ],
+         "Item"
+        ],
+        Cell[
+         TextData[
+          {
+           "A useful model is to assume acceleration follows a ",
+           StyleBox["random walk", FontWeight -> Bold],
+           ", ",
+           Cell[
+            BoxData[
+             FormBox[
+              TemplateBox[
+               <|
+                "boxes" ->
+                 FormBox[
+                  RowBox[
+                   {
+                    SubscriptBox[
+                     StyleBox["a", "TI"],
+                     RowBox[{StyleBox["t", "TI"], "+", "1"}]
+                    ],
+                    "\[LongEqual]",
+                    SubscriptBox[StyleBox["a", "TI"], StyleBox["t", "TI"]],
+                    "+",
+                    SubscriptBox[StyleBox["w", "TI"], StyleBox["t", "TI"]]
+                   }
+                  ],
+                  TraditionalForm
+                 ],
+                "errors" -> { },
+                "input" -> "a_{t+1}=a_t+w_t",
+                "state" -> "Boxes"
+               |>,
+               "TeXAssistantTemplate"
+              ],
+              TraditionalForm
+             ]
+            ]
+           ],
+           "where ",
+           Cell[
+            BoxData[
+             FormBox[
+              TemplateBox[
+               <|
+                "boxes" ->
+                 FormBox[
+                  SubscriptBox[StyleBox["w", "TI"], StyleBox["t", "TI"]],
+                  TraditionalForm
+                 ],
+                "errors" -> { },
+                "input" -> "w_t",
+                "state" -> "Boxes"
+               |>,
+               "TeXAssistantTemplate"
+              ],
+              TraditionalForm
+             ]
+            ]
+           ],
+           " is a random change in acceleration. This is natural for a car, because acceleration stays similar over a short interval but can change when the driver applies the throttle or brakes."
+          }
+         ],
+         "Text"
+        ],
+        Cell[
+         TextData[
+          {
+           "The key point is that we are ",
+           StyleBox["not", FontSlant -> Italic],
+           " insisting the car follows our motion model exactly \[LongDash] we are explicitly allowing it to deviate. "
+          }
+         ],
+         "Text"
+        ]
+       },
+       Open
+      ]
+     ],
+     Cell[
+      CellGroupData[
+       {
+        Cell["5. Model the observations", "Section"],
+        Cell[
+         TextData[
+          {
+           "Suppose we only receive measurements of the car's position. The measurement vector is simply ",
+           Cell[
+            BoxData[
+             FormBox[
+              TemplateBox[
+               <|
+                "boxes" ->
+                 FormBox[
+                  RowBox[
+                   {
+                    SubscriptBox[
+                     StyleBox["z", FontSlant -> "Bold"],
+                     StyleBox["t", "TI"]
+                    ],
+                    "\[LongEqual]",
+                    RowBox[
+                     {
+                      "(",
+                      Cell[
+                       BoxData[
+                        FormBox[
+                         GridBox[
+                          {
+                           {
+                            Cell[
+                             TextData[
+                              {
+                               " ",
+                               Cell[
+                                BoxData[SubscriptBox[StyleBox["p", "TI"], "measured"]],
+                                "InlineFormula"
+                               ],
+                               " "
+                              }
+                             ]
+                            ]
+                           }
+                          }
+                         ],
+                         TraditionalForm
+                        ]
+                       ]
+                      ],
+                      ")"
+                     }
+                    ]
+                   }
+                  ],
+                  TraditionalForm
+                 ],
+                "errors" -> { },
+                "input" -> "\\mathbf{z}_t = \\begin{pmatrix} p_{\\text{measured}} \\end{pmatrix}",
+                "state" -> "Boxes"
+               |>,
+               "TeXAssistantTemplate"
+              ],
+              TraditionalForm
+             ]
+            ]
+           ],
+           "and it is related to the state by ",
+           Cell[
+            BoxData[
+             FormBox[
+              TemplateBox[
+               <|
+                "boxes" ->
+                 FormBox[
+                  RowBox[
+                   {
+                    SubscriptBox[
+                     StyleBox["z", FontSlant -> "Bold"],
+                     StyleBox["t", "TI"]
+                    ],
+                    "\[LongEqual]",
+                    StyleBox["H", "TI"],
+                    SubscriptBox[
+                     StyleBox["x", FontSlant -> "Bold"],
+                     StyleBox["t", "TI"]
+                    ],
+                    "+",
+                    SubscriptBox[
+                     StyleBox["r", FontSlant -> "Bold"],
+                     StyleBox["t", "TI"]
+                    ]
+                   }
+                  ],
+                  TraditionalForm
+                 ],
+                "errors" -> { },
+                "input" -> "\\mathbf{z}_t = H\\mathbf{x}_t + \\mathbf{r}_t",
+                "state" -> "Boxes"
+               |>,
+               "TeXAssistantTemplate"
+              ],
+              TraditionalForm
+             ]
+            ]
+           ],
+           "where ",
+           Cell[
+            BoxData[
+             FormBox[
+              TemplateBox[
+               <|
+                "boxes" ->
+                 FormBox[
+                  RowBox[
+                   {
+                    StyleBox["H", "TI"],
+                    "\[LongEqual]",
+                    RowBox[
+                     {
+                      "(",
+                      Cell[
+                       BoxData[
+                        FormBox[
+                         GridBox[
+                          {
+                           {
+                            Cell[TextData[{" ", Cell["1", "InlineFormula"], " "}]],
+                            Cell[TextData[{" ", Cell["0", "InlineFormula"], " "}]],
+                            Cell[TextData[{" ", Cell["0", "InlineFormula"], " "}]]
+                           }
+                          }
+                         ],
+                         TraditionalForm
+                        ]
+                       ]
+                      ],
+                      ")"
+                     }
+                    ]
+                   }
+                  ],
+                  TraditionalForm
+                 ],
+                "errors" -> { },
+                "input" -> "H = \\begin{pmatrix} 1 & 0 & 0 \\end{pmatrix}",
+                "state" -> "Boxes"
+               |>,
+               "TeXAssistantTemplate"
+              ],
+              TraditionalForm
+             ]
+            ]
+           ],
+           "and ",
+           Cell[
+            BoxData[
+             FormBox[
+              TemplateBox[
+               <|
+                "boxes" ->
+                 FormBox[
+                  SubscriptBox[
+                   StyleBox["r", FontSlant -> "Bold"],
+                   StyleBox["t", "TI"]
+                  ],
+                  TraditionalForm
+                 ],
+                "errors" -> { },
+                "input" -> "\\mathbf{r}_t",
+                "state" -> "Boxes"
+               |>,
+               "TeXAssistantTemplate"
+              ],
+              TraditionalForm
+             ]
+            ]
+           ],
+           " is measurement noise."
+          }
+         ],
+         "Text"
+        ],
+        Cell[
+         TextData[
+          {
+           "We also define the ",
+           StyleBox[
+            "measurement noise covariance matrix",
+            FontWeight -> Bold
+           ],
+           " ",
+           Cell[
+            BoxData[
+             FormBox[
+              TemplateBox[
+               <|
+                "boxes" ->
+                 FormBox[
+                  StyleBox["R", FontSlant -> "Bold"],
+                  TraditionalForm
+                 ],
+                "errors" -> { },
+                "input" -> "\\mathbf{R}",
+                "state" -> "Boxes"
+               |>,
+               "TeXAssistantTemplate"
+              ],
+              TraditionalForm
+             ]
+            ]
+           ],
+           ". In this example it is a single number \[LongDash] the variance of the position measurements. If our GPS has a standard deviation of 2 metres, ",
+           Cell[
+            BoxData[
+             FormBox[
+              TemplateBox[
+               <|
+                "boxes" ->
+                 FormBox[
+                  RowBox[
+                   {
+                    StyleBox["R", "TI"],
+                    "\[LongEqual]",
+                    SuperscriptBox["2", "2"],
+                    "\[LongEqual]",
+                    "4"
+                   }
+                  ],
+                  TraditionalForm
+                 ],
+                "errors" -> { },
+                "input" -> "R = 2^2 = 4",
+                "state" -> "Boxes"
+               |>,
+               "TeXAssistantTemplate"
+              ],
+              TraditionalForm
+             ]
+            ]
+           ],
+           "which tells the filter how much confidence to place in the measurements."
+          }
+         ],
+         "Text"
+        ],
+        Cell["We now have three important components: ", "Text"],
+        Cell[
+         BoxData[
+          PaneBox[
+           PaneBox[
+            StyleBox[
+             TagBox[
+              TagBox[
+               GridBox[
+                {
+                 {
+                  TagBox["\"Component\"", HoldForm],
+                  TagBox["\"Purpose\"", HoldForm]
+                 },
+                 {
+                  Cell[
+                   BoxData[
+                    FormBox[
+                     TemplateBox[
+                      <|
+                       "boxes" ->
+                        FormBox[
+                         StyleBox["F", FontSlant -> "Bold"],
+                         TraditionalForm
+                        ],
+                       "errors" -> { },
+                       "input" -> "\\mathbf{F}",
+                       "state" -> "Boxes"
+                      |>,
+                      "TeXAssistantTemplate"
+                     ],
+                     TraditionalForm
+                    ]
+                   ]
+                  ],
+                  "\"Predicts how the car moves\""
+                 },
+                 {
+                  Cell[
+                   BoxData[
+                    FormBox[
+                     TemplateBox[
+                      <|
+                       "boxes" ->
+                        FormBox[
+                         StyleBox["Q", FontSlant -> "Bold"],
+                         TraditionalForm
+                        ],
+                       "errors" -> { },
+                       "input" -> "\\mathbf{Q}",
+                       "state" -> "Boxes"
+                      |>,
+                      "TeXAssistantTemplate"
+                     ],
+                     TraditionalForm
+                    ]
+                   ]
+                  ],
+                  "\"Describes uncertainty in the motion model\""
+                 },
+                 {
+                  Cell[
+                   BoxData[
+                    FormBox[
+                     TemplateBox[
+                      <|
+                       "boxes" ->
+                        FormBox[
+                         StyleBox["R", FontSlant -> "Bold"],
+                         TraditionalForm
+                        ],
+                       "errors" -> { },
+                       "input" -> "\\mathbf{R}",
+                       "state" -> "Boxes"
+                      |>,
+                      "TeXAssistantTemplate"
+                     ],
+                     TraditionalForm
+                    ]
+                   ]
+                  ],
+                  "\"Describes uncertainty in measurements\""
+                 }
+                },
+                GridBoxAlignment -> {"Columns" -> {Left, {Left}}, "Rows" -> {{Baseline}}},
+                GridBoxDividers -> {
+                 "Columns" -> {{False}},
+                 "Rows" -> {False, True, {False}, False}
+                },
+                GridBoxSpacings -> {
+                 "Columns" -> {Offset[0.28], {Offset[2.1]}, Offset[0.28]},
+                 "Rows" -> {Offset[0.2], {Offset[0.4]}, Offset[0.2]}
+                }
+               ],
+               {None, OutputFormsDump`HeadedColumns}
+              ],
+              Function[
+               BoxForm`e$,
+               TableForm[
+                BoxForm`e$,
+                TableHeadings -> {None, {"Component", "Purpose"}}
+               ]
+              ]
+             ],
+             "Text",
+             StripOnInput -> False,
+             ShowStringCharacters -> False
+            ],
+            ImageMargins -> {{0, 0}, {5, 5}}
+           ],
+           ImageMargins -> {{0, 0}, {5, 5}}
+          ]
+         ],
+         "TextTableForm",
+         "Text"
+        ]
+       },
+       Open
+      ]
+     ],
+     Cell[
+      CellGroupData[
+       {
+        Cell["6. The Kalman filter algorithm", "Section"],
+        Cell[
+         TextData[
+          {
+           "The filter operates in two alternating stages.",
+           StyleBox[
+            "Stage 1 \[LongDash] Prediction.",
+            FontWeight -> Bold
+           ],
+           " Use the previous estimate to predict the new state, ",
+           Cell[
+            BoxData[
+             FormBox[
+              TemplateBox[
+               <|
+                "boxes" ->
+                 FormBox[
+                  RowBox[
+                   {
+                    SubscriptBox[
+                     OverscriptBox[StyleBox["x", "TI"], "^"],
+                     RowBox[
+                      {StyleBox["t", "TI"], "|", StyleBox["t", "TI"], "-", "1"}
+                     ]
+                    ],
+                    "\[LongEqual]",
+                    StyleBox["F", "TI"],
+                    SubscriptBox[
+                     OverscriptBox[StyleBox["x", "TI"], "^"],
+                     RowBox[
+                      {
+                       StyleBox["t", "TI"],
+                       "-",
+                       "1|",
+                       StyleBox["t", "TI"],
+                       "-",
+                       "1"
+                      }
+                     ]
+                    ]
+                   }
+                  ],
+                  TraditionalForm
+                 ],
+                "errors" -> { },
+                "input" -> "\\hat{x}_{t|t-1}=F\\hat{x}_{t-1|t-1}",
+                "state" -> "Boxes"
+               |>,
+               "TeXAssistantTemplate"
+              ],
+              TraditionalForm
+             ]
+            ]
+           ],
+           "and predict how uncertain that estimate is, ",
+           Cell[
+            BoxData[
+             FormBox[
+              TemplateBox[
+               <|
+                "boxes" ->
+                 FormBox[
+                  RowBox[
+                   {
+                    SubscriptBox[
+                     StyleBox["P", "TI"],
+                     RowBox[
+                      {StyleBox["t", "TI"], "|", StyleBox["t", "TI"], "-", "1"}
+                     ]
+                    ],
+                    "\[LongEqual]",
+                    StyleBox["F", "TI"],
+                    SubscriptBox[
+                     StyleBox["P", "TI"],
+                     RowBox[
+                      {
+                       StyleBox["t", "TI"],
+                       "-",
+                       "1|",
+                       StyleBox["t", "TI"],
+                       "-",
+                       "1"
+                      }
+                     ]
+                    ],
+                    SuperscriptBox[StyleBox["F", "TI"], StyleBox["T", "TI"]],
+                    "+",
+                    StyleBox["Q", "TI"]
+                   }
+                  ],
+                  TraditionalForm
+                 ],
+                "errors" -> { },
+                "input" -> "P_{t|t-1}=FP_{t-1|t-1}F^T+Q",
+                "state" -> "Boxes"
+               |>,
+               "TeXAssistantTemplate"
+              ],
+              TraditionalForm
+             ]
+            ]
+           ],
+           "Here ",
+           Cell[
+            BoxData[
+             FormBox[
+              TemplateBox[
+               <|
+                "boxes" -> FormBox[StyleBox["P", "TI"], TraditionalForm],
+                "errors" -> { },
+                "input" -> "P",
+                "state" -> "Boxes"
+               |>,
+               "TeXAssistantTemplate"
+              ],
+              TraditionalForm
+             ]
+            ]
+           ],
+           " is the covariance matrix of the state estimate. It describes the uncertainty in position, velocity and acceleration, including their correlations.",
+           StyleBox[
+            "Stage 2 \[LongDash] Measurement update.",
+            FontWeight -> Bold
+           ],
+           " Receive a new position measurement and compare it with the prediction."
+          }
+         ],
+         "Text"
+        ],
+        Cell[
+         TextData[
+          {
+           "First compute the prediction error (innovation), ",
+           Cell[
+            BoxData[
+             FormBox[
+              TemplateBox[
+               <|
+                "boxes" ->
+                 FormBox[
+                  RowBox[
+                   {
+                    SubscriptBox[StyleBox["y", "TI"], StyleBox["t", "TI"]],
+                    "\[LongEqual]",
+                    SubscriptBox[StyleBox["z", "TI"], StyleBox["t", "TI"]],
+                    "-",
+                    StyleBox["H", "TI"],
+                    SubscriptBox[
+                     OverscriptBox[StyleBox["x", "TI"], "^"],
+                     RowBox[
+                      {StyleBox["t", "TI"], "|", StyleBox["t", "TI"], "-", "1"}
+                     ]
+                    ]
+                   }
+                  ],
+                  TraditionalForm
+                 ],
+                "errors" -> { },
+                "input" -> "y_t=z_t-H\\hat{x}_{t|t-1}",
+                "state" -> "Boxes"
+               |>,
+               "TeXAssistantTemplate"
+              ],
+              TraditionalForm
+             ]
+            ]
+           ],
+           "then the Kalman gain, ",
+           Cell[
+            BoxData[
+             FormBox[
+              TemplateBox[
+               <|
+                "boxes" ->
+                 FormBox[
+                  RowBox[
+                   {
+                    SubscriptBox[StyleBox["K", "TI"], StyleBox["t", "TI"]],
+                    "\[LongEqual]",
+                    SubscriptBox[
+                     StyleBox["P", "TI"],
+                     RowBox[
+                      {StyleBox["t", "TI"], "|", StyleBox["t", "TI"], "-", "1"}
+                     ]
+                    ],
+                    SuperscriptBox[StyleBox["H", "TI"], StyleBox["T", "TI"]],
+                    SuperscriptBox[
+                     RowBox[
+                      {
+                       "(",
+                       RowBox[
+                        {
+                         StyleBox["H", "TI"],
+                         SubscriptBox[
+                          StyleBox["P", "TI"],
+                          RowBox[
+                           {StyleBox["t", "TI"], "|", StyleBox["t", "TI"], "-", "1"}
+                          ]
+                         ],
+                         SuperscriptBox[StyleBox["H", "TI"], StyleBox["T", "TI"]],
+                         "+",
+                         StyleBox["R", "TI"]
+                        }
+                       ],
+                       ")"
+                      }
+                     ],
+                     "-1"
+                    ]
+                   }
+                  ],
+                  TraditionalForm
+                 ],
+                "errors" -> { },
+                "input" -> "K_t=P_{t|t-1}H^T\\left(HP_{t|t-1}H^T+R\\right)^{-1}",
+                "state" -> "Boxes"
+               |>,
+               "TeXAssistantTemplate"
+              ],
+              TraditionalForm
+             ]
+            ]
+           ],
+           "which determines how much we adjust the prediction in response to the new measurement. Finally update the state, ",
+           Cell[
+            BoxData[
+             FormBox[
+              TemplateBox[
+               <|
+                "boxes" ->
+                 FormBox[
+                  RowBox[
+                   {
+                    SubscriptBox[
+                     OverscriptBox[StyleBox["x", "TI"], "^"],
+                     RowBox[{StyleBox["t", "TI"], "|", StyleBox["t", "TI"]}]
+                    ],
+                    "\[LongEqual]",
+                    SubscriptBox[
+                     OverscriptBox[StyleBox["x", "TI"], "^"],
+                     RowBox[
+                      {StyleBox["t", "TI"], "|", StyleBox["t", "TI"], "-", "1"}
+                     ]
+                    ],
+                    "+",
+                    SubscriptBox[StyleBox["K", "TI"], StyleBox["t", "TI"]],
+                    SubscriptBox[StyleBox["y", "TI"], StyleBox["t", "TI"]]
+                   }
+                  ],
+                  TraditionalForm
+                 ],
+                "errors" -> { },
+                "input" -> "\\hat{x}_{t|t}=\\hat{x}_{t|t-1}+K_t y_t",
+                "state" -> "Boxes"
+               |>,
+               "TeXAssistantTemplate"
+              ],
+              TraditionalForm
+             ]
+            ]
+           ],
+           "and its uncertainty, ",
+           Cell[
+            BoxData[
+             FormBox[
+              TemplateBox[
+               <|
+                "boxes" ->
+                 FormBox[
+                  RowBox[
+                   {
+                    SubscriptBox[
+                     StyleBox["P", "TI"],
+                     RowBox[{StyleBox["t", "TI"], "|", StyleBox["t", "TI"]}]
+                    ],
+                    "\[LongEqual]",
+                    RowBox[
+                     {
+                      "(",
+                      RowBox[
+                       {
+                        StyleBox["I", "TI"],
+                        "-",
+                        SubscriptBox[StyleBox["K", "TI"], StyleBox["t", "TI"]],
+                        StyleBox["H", "TI"]
+                       }
+                      ],
+                      ")"
+                     }
+                    ],
+                    SubscriptBox[
+                     StyleBox["P", "TI"],
+                     RowBox[
+                      {StyleBox["t", "TI"], "|", StyleBox["t", "TI"], "-", "1"}
+                     ]
+                    ]
+                   }
+                  ],
+                  TraditionalForm
+                 ],
+                "errors" -> { },
+                "input" -> "P_{t|t}=\\left(I-K_tH\\right)P_{t|t-1}",
+                "state" -> "Boxes"
+               |>,
+               "TeXAssistantTemplate"
+              ],
+              TraditionalForm
+             ]
+            ]
+           ],
+           "The interesting part is the Kalman gain: "
+          }
+         ],
+         "Text"
+        ],
+        Cell[
+         TextData[
+          {
+           "If measurement noise is high (large ",
+           Cell[
+            BoxData[
+             FormBox[
+              TemplateBox[
+               <|
+                "boxes" ->
+                 FormBox[
+                  StyleBox["R", FontSlant -> "Bold"],
+                  TraditionalForm
+                 ],
+                "errors" -> { },
+                "input" -> "\\mathbf{R}",
+                "state" -> "Boxes"
+               |>,
+               "TeXAssistantTemplate"
+              ],
+              TraditionalForm
+             ]
+            ]
+           ],
+           "), the filter relies more on its motion prediction."
+          }
+         ],
+         "Item"
+        ],
+        Cell[
+         TextData[
+          {
+           "If the motion model is uncertain (large ",
+           Cell[
+            BoxData[
+             FormBox[
+              TemplateBox[
+               <|
+                "boxes" ->
+                 FormBox[
+                  StyleBox["Q", FontSlant -> "Bold"],
+                  TraditionalForm
+                 ],
+                "errors" -> { },
+                "input" -> "\\mathbf{Q}",
+                "state" -> "Boxes"
+               |>,
+               "TeXAssistantTemplate"
+              ],
+              TraditionalForm
+             ]
+            ]
+           ],
+           "), the filter relies more on the measurements."
+          }
+         ],
+         "Item"
+        ],
+        Cell[
+         "If the measurement is particularly reliable, it pulls the estimate towards the observed position.",
+         "Item"
+        ],
+        Cell[
+         "The filter calculates this balance automatically at every observation. ",
+         "Text"
+        ]
+       },
+       Open
+      ]
+     ],
+     Cell[
+      CellGroupData[
+       {
+        Cell["7. Implement the 1D filter", "Section"],
+        Cell[
+         "Let us turn the equations above into Wolfram Language code. ",
+         "Text"
+        ],
+        Cell[
+         BoxData[
+          RowBox[
+           {
+            RowBox[
+             {
+              "(*",
+              " ",
+              RowBox[
+               {"Time", " ", "step", " ", "between", " ", "observations"}
+              ],
+              " ",
+              "*)"
+             }
+            ],
+            "\[IndentingNewLine]",
+            RowBox[
+             {
+              RowBox[{RowBox[{"dt", "=", "0.1"}], ";"}],
+              "\[IndentingNewLine]",
+              "\[IndentingNewLine]",
+              RowBox[
+               {
+                "(*",
+                " ",
+                RowBox[
+                 {
+                  "State",
+                  " ",
+                  "transition",
+                  " ",
+                  RowBox[
+                   {
+                    "matrix",
+                    ":",
+                    " ",
+                    RowBox[
+                     {"constant", "-", RowBox[{"acceleration", " ", "model"}]}
+                    ]
+                   }
+                  ]
+                 }
+                ],
+                " ",
+                "*)"
+               }
+              ],
+              "\[IndentingNewLine]",
+              RowBox[
+               {
+                RowBox[
+                 {
+                  "F",
+                  "=",
+                  RowBox[
+                   {
+                    "{",
+                    RowBox[
+                     {
+                      RowBox[
+                       {
+                        "{",
+                        RowBox[
+                         {
+                          "1",
+                          ",",
+                          "dt",
+                          ",",
+                          RowBox[{RowBox[{"dt", "^", "2"}], "/", "2"}]
+                         }
+                        ],
+                        "}"
+                       }
+                      ],
+                      ",",
+                      RowBox[{"{", RowBox[{"0", ",", "1", ",", "dt"}], "}"}],
+                      ",",
+                      RowBox[{"{", RowBox[{"0", ",", "0", ",", "1"}], "}"}]
+                     }
+                    ],
+                    "}"
+                   }
+                  ]
+                 }
+                ],
+                ";"
+               }
+              ],
+              "\[IndentingNewLine]",
+              "\[IndentingNewLine]",
+              RowBox[
+               {
+                "(*",
+                " ",
+                RowBox[
+                 {
+                  "Measurement",
+                  " ",
+                  RowBox[
+                   {
+                    "matrix",
+                    ":",
+                    " ",
+                    RowBox[
+                     {"we", " ", "observe", " ", "position", " ", "only"}
+                    ]
+                   }
+                  ]
+                 }
+                ],
+                " ",
+                "*)"
+               }
+              ],
+              "\[IndentingNewLine]",
+              RowBox[
+               {
+                RowBox[
+                 {
+                  "H",
+                  "=",
+                  RowBox[
+                   {
+                    "{",
+                    RowBox[{"{", RowBox[{"1", ",", "0", ",", "0"}], "}"}],
+                    "}"
+                   }
+                  ]
+                 }
+                ],
+                ";"
+               }
+              ],
+              "\[IndentingNewLine]",
+              "\[IndentingNewLine]",
+              RowBox[
+               {
+                "(*",
+                " ",
+                RowBox[
+                 {
+                  RowBox[
+                   {
+                    RowBox[
+                     {
+                      "Measurement",
+                      " ",
+                      "noise",
+                      " ",
+                      RowBox[{"covariance", ":", " ", "sigma"}]
+                     }
+                    ],
+                    " ",
+                    "=",
+                    " ",
+                    RowBox[{"2", " ", "m"}]
+                   }
+                  ],
+                  ",",
+                  " ",
+                  RowBox[{"variance", " ", "=", " ", "4"}]
+                 }
+                ],
+                " ",
+                "*)"
+               }
+              ],
+              "\[IndentingNewLine]",
+              RowBox[
+               {
+                RowBox[
+                 {"R", "=", RowBox[{"{", RowBox[{"{", "4", "}"}], "}"}]}
+                ],
+                ";"
+               }
+              ],
+              "\[IndentingNewLine]",
+              "\[IndentingNewLine]",
+              RowBox[
+               {
+                "(*",
+                " ",
+                RowBox[
+                 {
+                  "Process",
+                  " ",
+                  RowBox[
+                   {
+                    "noise",
+                    ":",
+                    " ",
+                    RowBox[
+                     {
+                      "random",
+                      " ",
+                      "changes",
+                      " ",
+                      "in",
+                      " ",
+                      "acceleration",
+                      " ",
+                      "with",
+                      " ",
+                      "std",
+                      " ",
+                      "dev",
+                      " ",
+                      "qa"
+                     }
+                    ]
+                   }
+                  ]
+                 }
+                ],
+                " ",
+                "*)"
+               }
+              ],
+              "\[IndentingNewLine]",
+              RowBox[{RowBox[{"qa", "=", "0.5"}], ";"}],
+              "\[IndentingNewLine]",
+              RowBox[
+               {
+                RowBox[
+                 {
+                  "G",
+                  "=",
+                  RowBox[
+                   {
+                    "{",
+                    RowBox[
+                     {
+                      RowBox[{RowBox[{"dt", "^", "2"}], "/", "2"}],
+                      ",",
+                      "dt",
+                      ",",
+                      "1"
+                     }
+                    ],
+                    "}"
+                   }
+                  ]
+                 }
+                ],
+                ";"
+               }
+              ],
+              "\[IndentingNewLine]",
+              RowBox[
+               {
+                RowBox[
+                 {
+                  "Q",
+                  "=",
+                  RowBox[
+                   {
+                    RowBox[{"qa", "^", "2"}],
+                    " ",
+                    RowBox[
+                     {"Outer", "[", RowBox[{"Times", ",", "G", ",", "G"}], "]"}
+                    ]
+                   }
+                  ]
+                 }
+                ],
+                ";"
+               }
+              ],
+              "\[IndentingNewLine]",
+              "\[IndentingNewLine]",
+              RowBox[
+               {
+                "(*",
+                " ",
+                RowBox[
+                 {
+                  RowBox[{"One", " ", "prediction"}],
+                  " ",
+                  "+",
+                  " ",
+                  RowBox[
+                   {
+                    "update",
+                    " ",
+                    "step",
+                    " ",
+                    "of",
+                    " ",
+                    "a",
+                    " ",
+                    "linear",
+                    " ",
+                    "Kalman",
+                    " ",
+                    "filter"
+                   }
+                  ]
+                 }
+                ],
+                " ",
+                "*)"
+               }
+              ],
+              "\[IndentingNewLine]",
+              RowBox[
+               {
+                RowBox[
+                 {
+                  RowBox[
+                   {
+                    "kalmanStep",
+                    "[",
+                    RowBox[
+                     {
+                      RowBox[{"{", RowBox[{"x_", ",", "P_"}], "}"}],
+                      ",",
+                      "z_",
+                      ",",
+                      "F_",
+                      ",",
+                      "H_",
+                      ",",
+                      "Q_",
+                      ",",
+                      "R_"
+                     }
+                    ],
+                    "]"
+                   }
+                  ],
+                  ":=",
+                  RowBox[
+                   {
+                    "Module",
+                    "[",
+                    RowBox[
+                     {
+                      RowBox[
+                       {
+                        "{",
+                        RowBox[
+                         {"xPred", ",", "PPred", ",", "y", ",", "S", ",", "K"}
+                        ],
+                        "}"
+                       }
+                      ],
+                      ",",
+                      "\[IndentingNewLine]",
+                      "  ",
+                      RowBox[{"(*", " ", "Prediction", " ", "*)"}],
+                      "\[IndentingNewLine]",
+                      "  ",
+                      RowBox[
+                       {
+                        RowBox[{"xPred", "=", RowBox[{"F", " ", ".", " ", "x"}]}],
+                        ";",
+                        "\[IndentingNewLine]",
+                        "  ",
+                        RowBox[
+                         {
+                          "PPred",
+                          "=",
+                          RowBox[
+                           {
+                            RowBox[
+                             {
+                              "F",
+                              " ",
+                              ".",
+                              " ",
+                              "P",
+                              " ",
+                              ".",
+                              " ",
+                              RowBox[{"Transpose", "[", "F", "]"}]
+                             }
+                            ],
+                            "+",
+                            "Q"
+                           }
+                          ]
+                         }
+                        ],
+                        ";",
+                        "\[IndentingNewLine]",
+                        "  ",
+                        RowBox[
+                         {
+                          "(*",
+                          " ",
+                          RowBox[{"Measurement", " ", "update"}],
+                          " ",
+                          "*)"
+                         }
+                        ],
+                        "\[IndentingNewLine]",
+                        "  ",
+                        RowBox[
+                         {
+                          "y",
+                          "=",
+                          RowBox[{"z", "-", RowBox[{"H", " ", ".", " ", "xPred"}]}]
+                         }
+                        ],
+                        ";",
+                        "                     ",
+                        RowBox[{"(*", " ", "innovation", " ", "*)"}],
+                        "\[IndentingNewLine]",
+                        "  ",
+                        RowBox[
+                         {
+                          "S",
+                          "=",
+                          RowBox[
+                           {
+                            RowBox[
+                             {
+                              "H",
+                              " ",
+                              ".",
+                              " ",
+                              "PPred",
+                              " ",
+                              ".",
+                              " ",
+                              RowBox[{"Transpose", "[", "H", "]"}]
+                             }
+                            ],
+                            "+",
+                            "R"
+                           }
+                          ]
+                         }
+                        ],
+                        ";",
+                        "      ",
+                        RowBox[
+                         {
+                          "(*",
+                          " ",
+                          RowBox[{"innovation", " ", "covariance"}],
+                          " ",
+                          "*)"
+                         }
+                        ],
+                        "\[IndentingNewLine]",
+                        "  ",
+                        RowBox[
+                         {
+                          "K",
+                          "=",
+                          RowBox[
+                           {
+                            "PPred",
+                            " ",
+                            ".",
+                            " ",
+                            RowBox[{"Transpose", "[", "H", "]"}],
+                            " ",
+                            ".",
+                            " ",
+                            RowBox[{"Inverse", "[", "S", "]"}]
+                           }
+                          ]
+                         }
+                        ],
+                        ";",
+                        " ",
+                        RowBox[
+                         {"(*", " ", RowBox[{"Kalman", " ", "gain"}], " ", "*)"}
+                        ],
+                        "\[IndentingNewLine]",
+                        "  ",
+                        RowBox[
+                         {
+                          "{",
+                          RowBox[
+                           {
+                            RowBox[{"xPred", "+", RowBox[{"K", " ", ".", " ", "y"}]}],
+                            ",",
+                            RowBox[
+                             {
+                              RowBox[
+                               {
+                                "(",
+                                RowBox[
+                                 {
+                                  RowBox[
+                                   {
+                                    "IdentityMatrix",
+                                    "[",
+                                    RowBox[{"Length", "[", "x", "]"}],
+                                    "]"
+                                   }
+                                  ],
+                                  "-",
+                                  RowBox[{"K", " ", ".", " ", "H"}]
+                                 }
+                                ],
+                                ")"
+                               }
+                              ],
+                              " ",
+                              ".",
+                              " ",
+                              "PPred"
+                             }
+                            ]
+                           }
+                          ],
+                          "}"
+                         }
+                        ]
+                       }
+                      ]
+                     }
+                    ],
+                    "\[IndentingNewLine]",
+                    "]"
+                   }
+                  ]
+                 }
+                ],
+                ";"
+               }
+              ]
+             }
+            ]
+           }
+          ]
+         ],
+         "Input",
+         CellLabel -> "In[1]:="
+        ],
+        Cell["Let's look at the matrices: ", "CodeText"],
+        Cell[
+         BoxData[
+          RowBox[
+           {
+            "Grid",
+            "[",
+            RowBox[
+             {
+              RowBox[
+               {
+                "{",
+                RowBox[
+                 {
+                  RowBox[
+                   {
+                    "{",
+                    RowBox[
+                     {"\"F\"", ",", RowBox[{"MatrixForm", "[", "F", "]"}]}
+                    ],
+                    "}"
+                   }
+                  ],
+                  ",",
+                  RowBox[
+                   {
+                    "{",
+                    RowBox[
+                     {"\"H\"", ",", RowBox[{"MatrixForm", "[", "H", "]"}]}
+                    ],
+                    "}"
+                   }
+                  ],
+                  ",",
+                  RowBox[
+                   {
+                    "{",
+                    RowBox[
+                     {"\"Q\"", ",", RowBox[{"MatrixForm", "[", "Q", "]"}]}
+                    ],
+                    "}"
+                   }
+                  ],
+                  ",",
+                  RowBox[
+                   {
+                    "{",
+                    RowBox[
+                     {"\"R\"", ",", RowBox[{"MatrixForm", "[", "R", "]"}]}
+                    ],
+                    "}"
+                   }
+                  ]
+                 }
+                ],
+                "}"
+               }
+              ],
+              ",",
+              "\[IndentingNewLine]",
+              " ",
+              RowBox[{"Frame", "->", "All"}],
+              ",",
+              RowBox[{"Alignment", "->", "Left"}]
+             }
+            ],
+            "]"
+           }
+          ]
+         ],
+         "Input",
+         CellLabel -> "In[9]:="
+        ],
+        Cell[
+         "Now run the filter on the table of measurements: ",
+         "CodeText"
+        ],
+        Cell[
+         BoxData[
+          {
+           RowBox[
+            {
+             RowBox[
+              {
+               RowBox[
+                {
+                 RowBox[
+                  {
+                   "step1D",
+                   "[",
+                   RowBox[
+                    {RowBox[{"{", RowBox[{"x_", ",", "P_"}], "}"}], ",", "z_"}
+                   ],
+                   "]"
+                  }
+                 ],
+                 ":=",
+                 RowBox[
+                  {
+                   "kalmanStep",
+                   "[",
+                   RowBox[
+                    {
+                     RowBox[{"{", RowBox[{"x", ",", "P"}], "}"}],
+                     ",",
+                     "z",
+                     ",",
+                     "F",
+                     ",",
+                     "H",
+                     ",",
+                     "Q",
+                     ",",
+                     "R"
+                    }
+                   ],
+                   "]"
+                  }
+                 ]
+                }
+               ],
+               ";"
+              }
+             ],
+             "\[IndentingNewLine]",
+             "\[IndentingNewLine]",
+             RowBox[
+              {
+               "(*",
+               " ",
+               RowBox[
+                {
+                 "Observations",
+                 " ",
+                 "from",
+                 " ",
+                 "the",
+                 " ",
+                 "table",
+                 " ",
+                 "above"
+                }
+               ],
+               " ",
+               "*)"
+              }
+             ]
+            }
+           ],
+           "\[IndentingNewLine]",
+           RowBox[
+            {
+             RowBox[
+              {
+               "measurements",
+               "=",
+               RowBox[
+                {
+                 "{",
+                 RowBox[
+                  {
+                   "1.2",
+                   ",",
+                   "1.4",
+                   ",",
+                   "5.1",
+                   ",",
+                   "5.0",
+                   ",",
+                   "9.3",
+                   ",",
+                   "9.1"
+                  }
+                 ],
+                 "}"
+                }
+               ]
+              }
+             ],
+             ";"
+            }
+           ],
+           "\[IndentingNewLine]",
+           RowBox[
+            {
+             RowBox[
+              {
+               RowBox[
+                {
+                 "actual",
+                 "=",
+                 RowBox[
+                  {
+                   "{",
+                   RowBox[
+                    {"0", ",", "2", ",", "4", ",", "6", ",", "8", ",", "10"}
+                   ],
+                   "}"
+                  }
+                 ]
+                }
+               ],
+               ";"
+              }
+             ],
+             "\[IndentingNewLine]",
+             "\[IndentingNewLine]",
+             RowBox[
+              {
+               "(*",
+               " ",
+               RowBox[
+                {
+                 RowBox[
+                  {
+                   "Initial",
+                   " ",
+                   RowBox[
+                    {
+                     "estimate",
+                     ":",
+                     " ",
+                     RowBox[
+                      {
+                       "start",
+                       " ",
+                       "at",
+                       " ",
+                       "the",
+                       " ",
+                       "first",
+                       " ",
+                       "measurement"
+                      }
+                     ]
+                    }
+                   ]
+                  }
+                 ],
+                 ",",
+                 " ",
+                 RowBox[
+                  {"zero", " ", RowBox[{"velocity", "/", "acceleration"}]}
+                 ]
+                }
+               ],
+               " ",
+               "*)"
+              }
+             ]
+            }
+           ],
+           "\[IndentingNewLine]",
+           RowBox[
+            {
+             RowBox[
+              {
+               "x0",
+               "=",
+               RowBox[
+                {
+                 "{",
+                 RowBox[
+                  {
+                   RowBox[{"First", "[", "measurements", "]"}],
+                   ",",
+                   "0",
+                   ",",
+                   "0"
+                  }
+                 ],
+                 "}"
+                }
+               ]
+              }
+             ],
+             ";"
+            }
+           ],
+           "\[IndentingNewLine]",
+           RowBox[
+            {
+             RowBox[
+              {
+               RowBox[
+                {
+                 "P0",
+                 "=",
+                 RowBox[
+                  {"10", " ", RowBox[{"IdentityMatrix", "[", "3", "]"}]}
+                 ]
+                }
+               ],
+               ";"
+              }
+             ],
+             "\[IndentingNewLine]",
+             "\[IndentingNewLine]",
+             RowBox[
+              {
+               "(*",
+               " ",
+               RowBox[
+                {
+                 "Run",
+                 " ",
+                 "the",
+                 " ",
+                 "filter",
+                 " ",
+                 "through",
+                 " ",
+                 "the",
+                 " ",
+                 "measurements"
+                }
+               ],
+               " ",
+               "*)"
+              }
+             ]
+            }
+           ],
+           "\[IndentingNewLine]",
+           RowBox[
+            {
+             RowBox[
+              {
+               "traj",
+               "=",
+               RowBox[
+                {
+                 "FoldList",
+                 "[",
+                 RowBox[
+                  {
+                   "step1D",
+                   ",",
+                   RowBox[{"{", RowBox[{"x0", ",", "P0"}], "}"}],
+                   ",",
+                   RowBox[{"Rest", "[", "measurements", "]"}]
+                  }
+                 ],
+                 "]"
+                }
+               ]
+              }
+             ],
+             ";"
+            }
+           ],
+           "\[IndentingNewLine]",
+           RowBox[
+            {
+             RowBox[
+              {
+               "xHistory",
+               "=",
+               RowBox[
+                {
+                 "traj",
+                 "[",
+                 RowBox[{"[", RowBox[{"All", ",", "1"}], "]"}],
+                 "]"
+                }
+               ]
+              }
+             ],
+             ";"
+            }
+           ],
+           "\[IndentingNewLine]",
+           RowBox[
+            {
+             RowBox[
+              {
+               "posEst",
+               "=",
+               RowBox[
+                {
+                 "xHistory",
+                 "[",
+                 RowBox[{"[", RowBox[{"All", ",", "1"}], "]"}],
+                 "]"
+                }
+               ]
+              }
+             ],
+             ";"
+            }
+           ],
+           "\[IndentingNewLine]",
+           RowBox[
+            {
+             RowBox[
+              {
+               "velEst",
+               "=",
+               RowBox[
+                {
+                 "xHistory",
+                 "[",
+                 RowBox[{"[", RowBox[{"All", ",", "2"}], "]"}],
+                 "]"
+                }
+               ]
+              }
+             ],
+             ";"
+            }
+           ],
+           "\[IndentingNewLine]",
+           RowBox[
+            {
+             RowBox[
+              {
+               RowBox[
+                {
+                 "accEst",
+                 "=",
+                 RowBox[
+                  {
+                   "xHistory",
+                   "[",
+                   RowBox[{"[", RowBox[{"All", ",", "3"}], "]"}],
+                   "]"
+                  }
+                 ]
+                }
+               ],
+               ";"
+              }
+             ],
+             "\[IndentingNewLine]"
+            }
+           ],
+           "\[IndentingNewLine]",
+           RowBox[
+            {
+             "Grid",
+             "[",
+             RowBox[
+              {
+               RowBox[
+                {
+                 "Prepend",
+                 "[",
+                 "\[IndentingNewLine]",
+                 "  ",
+                 RowBox[
+                  {
+                   RowBox[
+                    {
+                     "Transpose",
+                     "[",
+                     RowBox[
+                      {
+                       "{",
+                       RowBox[
+                        {
+                         RowBox[{"Range", "[", RowBox[{"0", ",", "5"}], "]"}],
+                         ",",
+                         "actual",
+                         ",",
+                         "measurements",
+                         ",",
+                         "posEst",
+                         ",",
+                         "velEst",
+                         ",",
+                         "accEst"
+                        }
+                       ],
+                       "}"
+                      }
+                     ],
+                     "]"
+                    }
+                   ],
+                   ",",
+                   "\[IndentingNewLine]",
+                   "  ",
+                   RowBox[
+                    {
+                     "{",
+                     RowBox[
+                      {
+                       "\"t (s)\"",
+                       ",",
+                       "\"Actual (m)\"",
+                       ",",
+                       "\"Measured (m)\"",
+                       ",",
+                       "\"Filtered (m)\"",
+                       ",",
+                       "\"v est (m/s)\"",
+                       ",",
+                       "\"a est (m/s^2)\""
+                      }
+                     ],
+                     "}"
+                    }
+                   ]
+                  }
+                 ],
+                 "]"
+                }
+               ],
+               ",",
+               "\[IndentingNewLine]",
+               "  ",
+               RowBox[{"Frame", "->", "All"}]
+              }
+             ],
+             "]"
+            }
+           ]
+          }
+         ],
+         "Input",
+         CellLabel -> "In[10]:="
+        ],
+        Cell[
+         BoxData[
+          {
+           RowBox[
+            {
+             RowBox[
+              {
+               "times",
+               "=",
+               RowBox[
+                {
+                 RowBox[{"Range", "[", RowBox[{"0", ",", "5"}], "]"}],
+                 "*",
+                 "dt"
+                }
+               ]
+              }
+             ],
+             ";"
+            }
+           ],
+           "\[IndentingNewLine]",
+           RowBox[
+            {
+             "ListPlot",
+             "[",
+             RowBox[
+              {
+               RowBox[
+                {
+                 "{",
+                 "\[IndentingNewLine]",
+                 "   ",
+                 RowBox[
+                  {
+                   RowBox[
+                    {
+                     "Transpose",
+                     "[",
+                     RowBox[{"{", RowBox[{"times", ",", "posEst"}], "}"}],
+                     "]"
+                    }
+                   ],
+                   ",",
+                   "\[IndentingNewLine]",
+                   "   ",
+                   RowBox[
+                    {
+                     "Transpose",
+                     "[",
+                     RowBox[{"{", RowBox[{"times", ",", "measurements"}], "}"}],
+                     "]"
+                    }
+                   ],
+                   ",",
+                   "\[IndentingNewLine]",
+                   "   ",
+                   RowBox[
+                    {
+                     "Transpose",
+                     "[",
+                     RowBox[{"{", RowBox[{"times", ",", "actual"}], "}"}],
+                     "]"
+                    }
+                   ]
+                  }
+                 ],
+                 "}"
+                }
+               ],
+               ",",
+               "\[IndentingNewLine]",
+               "  ",
+               RowBox[
+                {
+                 "PlotMarkers",
+                 "->",
+                 RowBox[{"{", RowBox[{"Automatic", ",", "12"}], "}"}]
+                }
+               ],
+               ",",
+               "\[IndentingNewLine]",
+               "  ",
+               RowBox[{"Joined", "->", "True"}],
+               ",",
+               "\[IndentingNewLine]",
+               "  ",
+               RowBox[
+                {
+                 "PlotStyle",
+                 "->",
+                 RowBox[
+                  {"{", RowBox[{"Blue", ",", "Red", ",", "Black"}], "}"}
+                 ]
+                }
+               ],
+               ",",
+               "\[IndentingNewLine]",
+               "  ",
+               RowBox[
+                {
+                 "PlotLegends",
+                 "->",
+                 RowBox[
+                  {
+                   "{",
+                   RowBox[
+                    {"\"Filtered\"", ",", "\"Measured\"", ",", "\"Actual\""}
+                   ],
+                   "}"
+                  }
+                 ]
+                }
+               ],
+               ",",
+               "\[IndentingNewLine]",
+               "  ",
+               RowBox[
+                {
+                 "AxesLabel",
+                 "->",
+                 RowBox[
+                  {
+                   "{",
+                   RowBox[{"\"Time (s)\"", ",", "\"Position (m)\""}],
+                   "}"
+                  }
+                 ]
+                }
+               ],
+               ",",
+               "\[IndentingNewLine]",
+               "  ",
+               RowBox[{"ImageSize", "->", "500"}]
+              }
+             ],
+             "]"
+            }
+           ]
+          }
+         ],
+         "Input",
+         CellLabel -> "In[21]:="
+        ],
+        Cell[
+         "The filtered positions are pulled towards the actual positions while smoothing out the measurement noise. ",
+         "Text"
+        ]
+       },
+       Open
+      ]
+     ],
+     Cell[
+      CellGroupData[
+       {
+        Cell[
+         "8. Inferring velocity and acceleration from position only",
+         "Section"
+        ],
+        Cell[
+         TextData[
+          {
+           "Imagine the car is travelling at 20 m/s and the filter has estimated its acceleration to be zero. Its model predicts that after 0.1 s it will have travelled another 2 m. If the next GPS measurement shows 2.3 m, the filter sees a discrepancy and responds by adjusting its estimates of position, velocity ",
+           StyleBox["and", FontSlant -> Italic],
+           " acceleration."
+          }
+         ],
+         "Text"
+        ],
+        Cell[
+         "Even though we only measure position, the filter can infer that the car is accelerating because the observed positions consistently deviate from the predictions.",
+         "Text"
+        ],
+        Cell[
+         TextData[
+          {
+           "There is a trade-off: if the process noise is too low, the filter is slow to recognise changes in acceleration; if it is too high, it reacts strongly to measurement noise. Finding a sensible ",
+           Cell[
+            BoxData[
+             FormBox[
+              TemplateBox[
+               <|
+                "boxes" ->
+                 FormBox[
+                  StyleBox["Q", FontSlant -> "Bold"],
+                  TraditionalForm
+                 ],
+                "errors" -> { },
+                "input" -> "\\mathbf{Q}",
+                "state" -> "Boxes"
+               |>,
+               "TeXAssistantTemplate"
+              ],
+              TraditionalForm
+             ]
+            ]
+           ],
+           " is an important part of tuning."
+          }
+         ],
+         "Text"
+        ],
+        Cell[
+         "Let's demonstrate this with a longer simulation in which the car accelerates, brakes, and cruises: ",
+         "CodeText"
+        ],
+        Cell[
+         BoxData[
+          {
+           RowBox[{RowBox[{"SeedRandom", "[", "42", "]"}], ";"}],
+           "\[IndentingNewLine]",
+           RowBox[{RowBox[{"dt", "=", "0.1"}], ";"}],
+           "\[IndentingNewLine]",
+           RowBox[
+            {
+             RowBox[{RowBox[{"n", "=", "120"}], ";"}],
+             " ",
+             RowBox[
+              {"(*", " ", RowBox[{"12", " ", "seconds"}], " ", "*)"}
+             ]
+            }
+           ],
+           "\[IndentingNewLine]",
+           RowBox[
+            {
+             RowBox[
+              {
+               RowBox[
+                {
+                 "time",
+                 "=",
+                 RowBox[
+                  {
+                   RowBox[
+                    {
+                     "Range",
+                     "[",
+                     RowBox[{"0", ",", RowBox[{"n", "-", "1"}]}],
+                     "]"
+                    }
+                   ],
+                   "*",
+                   "dt"
+                  }
+                 ]
+                }
+               ],
+               ";"
+              }
+             ],
+             "\[IndentingNewLine]",
+             "\[IndentingNewLine]",
+             RowBox[
+              {
+               "(*",
+               " ",
+               RowBox[
+                {
+                 RowBox[
+                  {
+                   "True",
+                   " ",
+                   "acceleration",
+                   " ",
+                   RowBox[{"profile", ":", " ", "accelerate"}]
+                  }
+                 ],
+                 ",",
+                 " ",
+                 "brake",
+                 ",",
+                 " ",
+                 "cruise"
+                }
+               ],
+               " ",
+               "*)"
+              }
+             ]
+            }
+           ],
+           "\[IndentingNewLine]",
+           RowBox[
+            {
+             RowBox[
+              {
+               RowBox[
+                {
+                 "aTrue",
+                 "=",
+                 RowBox[
+                  {
+                   "Table",
+                   "[",
+                   RowBox[
+                    {
+                     RowBox[
+                      {
+                       "Piecewise",
+                       "[",
+                       RowBox[
+                        {
+                         "{",
+                         RowBox[
+                          {
+                           RowBox[
+                            {
+                             "{",
+                             RowBox[{"2", ",", RowBox[{"0", "<=", "t", "<", "4"}]}],
+                             "}"
+                            }
+                           ],
+                           ",",
+                           RowBox[
+                            {
+                             "{",
+                             RowBox[
+                              {
+                               RowBox[{"-", "1.5"}],
+                               ",",
+                               RowBox[{"4", "<=", "t", "<", "8"}]
+                              }
+                             ],
+                             "}"
+                            }
+                           ],
+                           ",",
+                           RowBox[{"{", RowBox[{"0.5", ",", "True"}], "}"}]
+                          }
+                         ],
+                         "}"
+                        }
+                       ],
+                       "]"
+                      }
+                     ],
+                     ",",
+                     RowBox[{"{", RowBox[{"t", ",", "time"}], "}"}]
+                    }
+                   ],
+                   "]"
+                  }
+                 ]
+                }
+               ],
+               ";"
+              }
+             ],
+             "\[IndentingNewLine]",
+             "\[IndentingNewLine]",
+             RowBox[
+              {
+               "(*",
+               " ",
+               RowBox[
+                {
+                 "Simulate",
+                 " ",
+                 "the",
+                 " ",
+                 "true",
+                 " ",
+                 "position",
+                 " ",
+                 "and",
+                 " ",
+                 "velocity"
+                }
+               ],
+               " ",
+               "*)"
+              }
+             ]
+            }
+           ],
+           "\[IndentingNewLine]",
+           RowBox[
+            {
+             RowBox[
+              {
+               "pTrue",
+               "=",
+               RowBox[
+                {"ConstantArray", "[", RowBox[{"0", ",", "n"}], "]"}
+               ]
+              }
+             ],
+             ";"
+            }
+           ],
+           "\[IndentingNewLine]",
+           RowBox[
+            {
+             RowBox[
+              {
+               "vTrue",
+               "=",
+               RowBox[
+                {"ConstantArray", "[", RowBox[{"0", ",", "n"}], "]"}
+               ]
+              }
+             ],
+             ";"
+            }
+           ],
+           "\[IndentingNewLine]",
+           RowBox[
+            {
+             RowBox[
+              {
+               RowBox[{"vTrue", "[", RowBox[{"[", "1", "]"}], "]"}],
+               "=",
+               "10"
+              }
+             ],
+             ";"
+            }
+           ],
+           "\[IndentingNewLine]",
+           RowBox[
+            {
+             RowBox[
+              {
+               RowBox[
+                {
+                 "Do",
+                 "[",
+                 "\[IndentingNewLine]",
+                 "  ",
+                 RowBox[
+                  {
+                   RowBox[
+                    {
+                     RowBox[
+                      {
+                       RowBox[{"vTrue", "[", RowBox[{"[", "i", "]"}], "]"}],
+                       "=",
+                       RowBox[
+                        {
+                         RowBox[
+                          {
+                           "vTrue",
+                           "[",
+                           RowBox[{"[", RowBox[{"i", "-", "1"}], "]"}],
+                           "]"
+                          }
+                         ],
+                         "+",
+                         RowBox[
+                          {
+                           RowBox[
+                            {
+                             "aTrue",
+                             "[",
+                             RowBox[{"[", RowBox[{"i", "-", "1"}], "]"}],
+                             "]"
+                            }
+                           ],
+                           "*",
+                           "dt"
+                          }
+                         ]
+                        }
+                       ]
+                      }
+                     ],
+                     ";",
+                     "\[IndentingNewLine]",
+                     "  ",
+                     RowBox[
+                      {
+                       RowBox[{"pTrue", "[", RowBox[{"[", "i", "]"}], "]"}],
+                       "=",
+                       RowBox[
+                        {
+                         RowBox[
+                          {
+                           "pTrue",
+                           "[",
+                           RowBox[{"[", RowBox[{"i", "-", "1"}], "]"}],
+                           "]"
+                          }
+                         ],
+                         "+",
+                         RowBox[
+                          {
+                           RowBox[
+                            {
+                             "vTrue",
+                             "[",
+                             RowBox[{"[", RowBox[{"i", "-", "1"}], "]"}],
+                             "]"
+                            }
+                           ],
+                           "*",
+                           "dt"
+                          }
+                         ],
+                         "+",
+                         RowBox[
+                          {
+                           "0.5",
+                           " ",
+                           RowBox[
+                            {
+                             "aTrue",
+                             "[",
+                             RowBox[{"[", RowBox[{"i", "-", "1"}], "]"}],
+                             "]"
+                            }
+                           ],
+                           "*",
+                           RowBox[{"dt", "^", "2"}]
+                          }
+                         ]
+                        }
+                       ]
+                      }
+                     ]
+                    }
+                   ],
+                   ",",
+                   "\[IndentingNewLine]",
+                   "  ",
+                   RowBox[{"{", RowBox[{"i", ",", "2", ",", "n"}], "}"}]
+                  }
+                 ],
+                 "\[IndentingNewLine]",
+                 "]"
+                }
+               ],
+               ";"
+              }
+             ],
+             "\[IndentingNewLine]",
+             "\[IndentingNewLine]",
+             RowBox[
+              {
+               "(*",
+               " ",
+               RowBox[{"Noisy", " ", "position", " ", "measurements"}],
+               " ",
+               "*)"
+              }
+             ]
+            }
+           ],
+           "\[IndentingNewLine]",
+           RowBox[{RowBox[{"sigma", "=", "2"}], ";"}],
+           "\[IndentingNewLine]",
+           RowBox[
+            {
+             RowBox[
+              {
+               RowBox[
+                {
+                 "measurements",
+                 "=",
+                 RowBox[
+                  {
+                   "pTrue",
+                   "+",
+                   RowBox[
+                    {
+                     "RandomVariate",
+                     "[",
+                     RowBox[
+                      {
+                       RowBox[
+                        {
+                         "NormalDistribution",
+                         "[",
+                         RowBox[{"0", ",", "sigma"}],
+                         "]"
+                        }
+                       ],
+                       ",",
+                       "n"
+                      }
+                     ],
+                     "]"
+                    }
+                   ]
+                  }
+                 ]
+                }
+               ],
+               ";"
+              }
+             ],
+             "\[IndentingNewLine]",
+             "\[IndentingNewLine]",
+             RowBox[
+              {
+               "(*",
+               " ",
+               RowBox[{"Run", " ", "the", " ", "Kalman", " ", "filter"}],
+               " ",
+               "*)"
+              }
+             ]
+            }
+           ],
+           "\[IndentingNewLine]",
+           RowBox[
+            {
+             RowBox[
+              {
+               "traj",
+               "=",
+               RowBox[
+                {
+                 "FoldList",
+                 "[",
+                 RowBox[
+                  {
+                   "step1D",
+                   ",",
+                   RowBox[
+                    {
+                     "{",
+                     RowBox[
+                      {
+                       RowBox[
+                        {
+                         "{",
+                         RowBox[
+                          {
+                           RowBox[{"First", "[", "measurements", "]"}],
+                           ",",
+                           "0",
+                           ",",
+                           "0"
+                          }
+                         ],
+                         "}"
+                        }
+                       ],
+                       ",",
+                       RowBox[
+                        {"10", " ", RowBox[{"IdentityMatrix", "[", "3", "]"}]}
+                       ]
+                      }
+                     ],
+                     "}"
+                    }
+                   ],
+                   ",",
+                   RowBox[{"Rest", "[", "measurements", "]"}]
+                  }
+                 ],
+                 "]"
+                }
+               ]
+              }
+             ],
+             ";"
+            }
+           ],
+           "\[IndentingNewLine]",
+           RowBox[
+            {
+             RowBox[
+              {
+               "xHistory",
+               "=",
+               RowBox[
+                {
+                 "traj",
+                 "[",
+                 RowBox[{"[", RowBox[{"All", ",", "1"}], "]"}],
+                 "]"
+                }
+               ]
+              }
+             ],
+             ";"
+            }
+           ],
+           "\[IndentingNewLine]",
+           RowBox[
+            {
+             RowBox[
+              {
+               "posEst",
+               "=",
+               RowBox[
+                {
+                 "xHistory",
+                 "[",
+                 RowBox[{"[", RowBox[{"All", ",", "1"}], "]"}],
+                 "]"
+                }
+               ]
+              }
+             ],
+             ";"
+            }
+           ],
+           "\[IndentingNewLine]",
+           RowBox[
+            {
+             RowBox[
+              {
+               "velEst",
+               "=",
+               RowBox[
+                {
+                 "xHistory",
+                 "[",
+                 RowBox[{"[", RowBox[{"All", ",", "2"}], "]"}],
+                 "]"
+                }
+               ]
+              }
+             ],
+             ";"
+            }
+           ],
+           "\[IndentingNewLine]",
+           RowBox[
+            {
+             RowBox[
+              {
+               "accEst",
+               "=",
+               RowBox[
+                {
+                 "xHistory",
+                 "[",
+                 RowBox[{"[", RowBox[{"All", ",", "3"}], "]"}],
+                 "]"
+                }
+               ]
+              }
+             ],
+             ";"
+            }
+           ]
+          }
+         ],
+         "Input",
+         CellLabel -> "In[23]:="
+        ],
+        Cell[
+         BoxData[
+          RowBox[
+           {
+            "ListPlot",
+            "[",
+            RowBox[
+             {
+              RowBox[
+               {
+                "{",
+                RowBox[
+                 {
+                  RowBox[
+                   {
+                    "Transpose",
+                    "[",
+                    RowBox[{"{", RowBox[{"time", ",", "posEst"}], "}"}],
+                    "]"
+                   }
+                  ],
+                  ",",
+                  RowBox[
+                   {
+                    "Transpose",
+                    "[",
+                    RowBox[{"{", RowBox[{"time", ",", "measurements"}], "}"}],
+                    "]"
+                   }
+                  ],
+                  ",",
+                  RowBox[
+                   {
+                    "Transpose",
+                    "[",
+                    RowBox[{"{", RowBox[{"time", ",", "pTrue"}], "}"}],
+                    "]"
+                   }
+                  ]
+                 }
+                ],
+                "}"
+               }
+              ],
+              ",",
+              "\[IndentingNewLine]",
+              "  ",
+              RowBox[{"Joined", "->", "True"}],
+              ",",
+              RowBox[
+               {
+                "PlotStyle",
+                "->",
+                RowBox[
+                 {
+                  "{",
+                  RowBox[
+                   {
+                    "Blue",
+                    ",",
+                    RowBox[
+                     {
+                      "{",
+                      RowBox[{"Red", ",", RowBox[{"Opacity", "[", "0.5", "]"}]}],
+                      "}"
+                     }
+                    ],
+                    ",",
+                    "Black"
+                   }
+                  ],
+                  "}"
+                 }
+                ]
+               }
+              ],
+              ",",
+              "\[IndentingNewLine]",
+              "  ",
+              RowBox[
+               {
+                "PlotLegends",
+                "->",
+                RowBox[
+                 {
+                  "{",
+                  RowBox[
+                   {"\"Filtered\"", ",", "\"Measured\"", ",", "\"Actual\""}
+                  ],
+                  "}"
+                 }
+                ]
+               }
+              ],
+              ",",
+              "\[IndentingNewLine]",
+              "  ",
+              RowBox[
+               {
+                "AxesLabel",
+                "->",
+                RowBox[
+                 {
+                  "{",
+                  RowBox[{"\"Time (s)\"", ",", "\"Position (m)\""}],
+                  "}"
+                 }
+                ]
+               }
+              ],
+              ",",
+              RowBox[{"ImageSize", "->", "500"}],
+              ",",
+              "\[IndentingNewLine]",
+              "  ",
+              RowBox[{"PlotLabel", "->", "\"Position\""}]
+             }
+            ],
+            "]"
+           }
+          ]
+         ],
+         "Input",
+         CellLabel -> "In[39]:="
+        ],
+        Cell[
+         "The velocity and acceleration are never measured, yet the filter recovers them from position alone: ",
+         "CodeText"
+        ],
+        Cell[
+         BoxData[
+          RowBox[
+           {
+            "Grid",
+            "[",
+            RowBox[
+             {
+              "{",
+              RowBox[
+               {
+                "{",
+                RowBox[
+                 {
+                  RowBox[
+                   {
+                    "ListPlot",
+                    "[",
+                    RowBox[
+                     {
+                      RowBox[
+                       {
+                        "{",
+                        RowBox[
+                         {
+                          RowBox[
+                           {
+                            "Transpose",
+                            "[",
+                            RowBox[{"{", RowBox[{"time", ",", "velEst"}], "}"}],
+                            "]"
+                           }
+                          ],
+                          ",",
+                          RowBox[
+                           {
+                            "Transpose",
+                            "[",
+                            RowBox[{"{", RowBox[{"time", ",", "vTrue"}], "}"}],
+                            "]"
+                           }
+                          ]
+                         }
+                        ],
+                        "}"
+                       }
+                      ],
+                      ",",
+                      "\[IndentingNewLine]",
+                      "      ",
+                      RowBox[{"Joined", "->", "True"}],
+                      ",",
+                      RowBox[
+                       {
+                        "PlotStyle",
+                        "->",
+                        RowBox[{"{", RowBox[{"Blue", ",", "Black"}], "}"}]
+                       }
+                      ],
+                      ",",
+                      "\[IndentingNewLine]",
+                      "      ",
+                      RowBox[
+                       {
+                        "PlotLegends",
+                        "->",
+                        RowBox[
+                         {"{", RowBox[{"\"Filtered\"", ",", "\"Actual\""}], "}"}
+                        ]
+                       }
+                      ],
+                      ",",
+                      "\[IndentingNewLine]",
+                      "      ",
+                      RowBox[
+                       {
+                        "AxesLabel",
+                        "->",
+                        RowBox[
+                         {
+                          "{",
+                          RowBox[{"\"Time (s)\"", ",", "\"Velocity (m/s)\""}],
+                          "}"
+                         }
+                        ]
+                       }
+                      ],
+                      ",",
+                      RowBox[{"ImageSize", "->", "400"}],
+                      ",",
+                      "\[IndentingNewLine]",
+                      "      ",
+                      RowBox[{"PlotLabel", "->", "\"Velocity\""}]
+                     }
+                    ],
+                    "]"
+                   }
+                  ],
+                  ",",
+                  "\[IndentingNewLine]",
+                  "    ",
+                  RowBox[
+                   {
+                    "ListPlot",
+                    "[",
+                    RowBox[
+                     {
+                      RowBox[
+                       {
+                        "{",
+                        RowBox[
+                         {
+                          RowBox[
+                           {
+                            "Transpose",
+                            "[",
+                            RowBox[{"{", RowBox[{"time", ",", "accEst"}], "}"}],
+                            "]"
+                           }
+                          ],
+                          ",",
+                          RowBox[
+                           {
+                            "Transpose",
+                            "[",
+                            RowBox[{"{", RowBox[{"time", ",", "aTrue"}], "}"}],
+                            "]"
+                           }
+                          ]
+                         }
+                        ],
+                        "}"
+                       }
+                      ],
+                      ",",
+                      "\[IndentingNewLine]",
+                      "      ",
+                      RowBox[{"Joined", "->", "True"}],
+                      ",",
+                      RowBox[
+                       {
+                        "PlotStyle",
+                        "->",
+                        RowBox[{"{", RowBox[{"Blue", ",", "Black"}], "}"}]
+                       }
+                      ],
+                      ",",
+                      "\[IndentingNewLine]",
+                      "      ",
+                      RowBox[
+                       {
+                        "PlotLegends",
+                        "->",
+                        RowBox[
+                         {"{", RowBox[{"\"Filtered\"", ",", "\"Actual\""}], "}"}
+                        ]
+                       }
+                      ],
+                      ",",
+                      "\[IndentingNewLine]",
+                      "      ",
+                      RowBox[
+                       {
+                        "AxesLabel",
+                        "->",
+                        RowBox[
+                         {
+                          "{",
+                          RowBox[{"\"Time (s)\"", ",", "\"Acceleration (m/s^2)\""}],
+                          "}"
+                         }
+                        ]
+                       }
+                      ],
+                      ",",
+                      RowBox[{"ImageSize", "->", "400"}],
+                      ",",
+                      "\[IndentingNewLine]",
+                      "      ",
+                      RowBox[{"PlotLabel", "->", "\"Acceleration\""}]
+                     }
+                    ],
+                    "]"
+                   }
+                  ]
+                 }
+                ],
+                "}"
+               }
+              ],
+              "}"
+             }
+            ],
+            "]"
+           }
+          ]
+         ],
+         "Input",
+         CellLabel -> "In[40]:="
+        ]
+       },
+       Open
+      ]
+     ],
+     Cell[
+      CellGroupData[
+       {
+        Cell["9. The 2D race track", "Section"],
+        Cell[
+         TextData[
+          {
+           "So far we have assumed a straight line. For a real race track we extend the model to two dimensions: instead of a single position we estimate ",
+           Cell[
+            BoxData[
+             FormBox[
+              TemplateBox[
+               <|
+                "boxes" ->
+                 FormBox[
+                  RowBox[
+                   {
+                    SubscriptBox[
+                     StyleBox["x", FontSlant -> "Bold"],
+                     StyleBox["t", "TI"]
+                    ],
+                    "\[LongEqual]",
+                    RowBox[
+                     {
+                      "(",
+                      Cell[
+                       BoxData[
+                        FormBox[
+                         GridBox[
+                          {
+                           {
+                            Cell[
+                             TextData[
+                              {
+                               " ",
+                               Cell[BoxData[StyleBox["x", "TI"]], "InlineFormula"],
+                               " "
+                              }
+                             ]
+                            ]
+                           },
+                           {
+                            Cell[
+                             TextData[
+                              {
+                               " ",
+                               Cell[BoxData[StyleBox["y", "TI"]], "InlineFormula"],
+                               " "
+                              }
+                             ]
+                            ]
+                           },
+                           {
+                            Cell[
+                             TextData[
+                              {
+                               " ",
+                               Cell[
+                                BoxData[
+                                 SubscriptBox[StyleBox["v", "TI"], StyleBox["x", "TI"]]
+                                ],
+                                "InlineFormula"
+                               ],
+                               " "
+                              }
+                             ]
+                            ]
+                           },
+                           {
+                            Cell[
+                             TextData[
+                              {
+                               " ",
+                               Cell[
+                                BoxData[
+                                 SubscriptBox[StyleBox["v", "TI"], StyleBox["y", "TI"]]
+                                ],
+                                "InlineFormula"
+                               ],
+                               " "
+                              }
+                             ]
+                            ]
+                           },
+                           {
+                            Cell[
+                             TextData[
+                              {
+                               " ",
+                               Cell[
+                                BoxData[
+                                 SubscriptBox[StyleBox["a", "TI"], StyleBox["x", "TI"]]
+                                ],
+                                "InlineFormula"
+                               ],
+                               " "
+                              }
+                             ]
+                            ]
+                           },
+                           {
+                            Cell[
+                             TextData[
+                              {
+                               " ",
+                               Cell[
+                                BoxData[
+                                 SubscriptBox[StyleBox["a", "TI"], StyleBox["y", "TI"]]
+                                ],
+                                "InlineFormula"
+                               ],
+                               " "
+                              }
+                             ]
+                            ]
+                           }
+                          }
+                         ],
+                         TraditionalForm
+                        ]
+                       ]
+                      ],
+                      ")"
+                     }
+                    ]
+                   }
+                  ],
+                  TraditionalForm
+                 ],
+                "errors" -> { },
+                "input" -> "\\mathbf{x}_t = \\begin{pmatrix} x \\\\ y \\\\ v_x \\\\ v_y \\\\ a_x \\\\ a_y \\end{pmatrix}",
+                "state" -> "Boxes"
+               |>,
+               "TeXAssistantTemplate"
+              ],
+              TraditionalForm
+             ]
+            ]
+           ],
+           "applying the same constant-acceleration model independently to the two coordinate directions, with measurements ",
+           Cell[
+            BoxData[
+             FormBox[
+              TemplateBox[
+               <|
+                "boxes" ->
+                 FormBox[
+                  RowBox[
+                   {
+                    SubscriptBox[
+                     StyleBox["z", FontSlant -> "Bold"],
+                     StyleBox["t", "TI"]
+                    ],
+                    "\[LongEqual]",
+                    RowBox[
+                     {
+                      "(",
+                      Cell[
+                       BoxData[
+                        FormBox[
+                         GridBox[
+                          {
+                           {
+                            Cell[
+                             TextData[
+                              {
+                               " ",
+                               Cell[
+                                BoxData[SubscriptBox[StyleBox["x", "TI"], "measured"]],
+                                "InlineFormula"
+                               ],
+                               " "
+                              }
+                             ]
+                            ]
+                           },
+                           {
+                            Cell[
+                             TextData[
+                              {
+                               " ",
+                               Cell[
+                                BoxData[SubscriptBox[StyleBox["y", "TI"], "measured"]],
+                                "InlineFormula"
+                               ],
+                               " "
+                              }
+                             ]
+                            ]
+                           }
+                          }
+                         ],
+                         TraditionalForm
+                        ]
+                       ]
+                      ],
+                      ")"
+                     }
+                    ]
+                   }
+                  ],
+                  TraditionalForm
+                 ],
+                "errors" -> { },
+                "input" -> "\\mathbf{z}_t = \\begin{pmatrix} x_{\\text{measured}} \\\\ y_{\\text{measured}} \\end{pmatrix}",
+                "state" -> "Boxes"
+               |>,
+               "TeXAssistantTemplate"
+              ],
+              TraditionalForm
+             ]
+            ]
+           ],
+           "The full implementation: "
+          }
+         ],
+         "CodeText"
+        ],
+        Cell[
+         BoxData[
+          {
+           RowBox[{RowBox[{"SeedRandom", "[", "7", "]"}], ";"}],
+           "\[IndentingNewLine]",
+           RowBox[{RowBox[{"dt", "=", "0.1"}], ";"}],
+           "\[IndentingNewLine]",
+           RowBox[
+            {
+             RowBox[{RowBox[{"n", "=", "300"}], ";"}],
+             " ",
+             RowBox[
+              {"(*", " ", RowBox[{"30", " ", "seconds"}], " ", "*)"}
+             ]
+            }
+           ],
+           "\[IndentingNewLine]",
+           RowBox[
+            {
+             RowBox[
+              {
+               RowBox[
+                {
+                 "time",
+                 "=",
+                 RowBox[
+                  {
+                   RowBox[
+                    {
+                     "Range",
+                     "[",
+                     RowBox[{"0", ",", RowBox[{"n", "-", "1"}]}],
+                     "]"
+                    }
+                   ],
+                   "*",
+                   "dt"
+                  }
+                 ]
+                }
+               ],
+               ";"
+              }
+             ],
+             "\[IndentingNewLine]"
+            }
+           ],
+           "\[IndentingNewLine]",
+           RowBox[
+            {
+             RowBox[{RowBox[{"radius", "=", "100"}], ";"}],
+             " ",
+             RowBox[
+              {"(*", " ", RowBox[{"track", " ", "radius"}], " ", "*)"}
+             ],
+             "\[IndentingNewLine]",
+             "\[IndentingNewLine]",
+             RowBox[
+              {
+               "(*",
+               " ",
+               RowBox[
+                {
+                 "Tangential",
+                 " ",
+                 "speed",
+                 " ",
+                 RowBox[
+                  {
+                   "varies",
+                   ":",
+                   " ",
+                   RowBox[
+                    {
+                     "the",
+                     " ",
+                     "car",
+                     " ",
+                     "accelerates",
+                     " ",
+                     "and",
+                     " ",
+                     "brakes",
+                     " ",
+                     "around",
+                     " ",
+                     "the",
+                     " ",
+                     "track"
+                    }
+                   ]
+                  }
+                 ]
+                }
+               ],
+               " ",
+               "*)"
+              }
+             ]
+            }
+           ],
+           "\[IndentingNewLine]",
+           RowBox[
+            {
+             RowBox[
+              {
+               RowBox[
+                {
+                 "vTang",
+                 "=",
+                 RowBox[
+                  {
+                   "30",
+                   "+",
+                   RowBox[
+                    {
+                     "8",
+                     " ",
+                     RowBox[
+                      {
+                       "Sin",
+                       "[",
+                       RowBox[{"2", " ", "Pi", " ", RowBox[{"time", "/", "20"}]}],
+                       "]"
+                      }
+                     ]
+                    }
+                   ]
+                  }
+                 ]
+                }
+               ],
+               ";"
+              }
+             ],
+             "\[IndentingNewLine]",
+             "\[IndentingNewLine]",
+             RowBox[
+              {
+               "(*",
+               " ",
+               RowBox[
+                {
+                 "Integrate",
+                 " ",
+                 "the",
+                 " ",
+                 "speed",
+                 " ",
+                 "to",
+                 " ",
+                 "get",
+                 " ",
+                 "the",
+                 " ",
+                 "angle",
+                 " ",
+                 "around",
+                 " ",
+                 "the",
+                 " ",
+                 "circle"
+                }
+               ],
+               " ",
+               "*)"
+              }
+             ]
+            }
+           ],
+           "\[IndentingNewLine]",
+           RowBox[
+            {
+             RowBox[
+              {
+               "theta",
+               "=",
+               RowBox[
+                {"ConstantArray", "[", RowBox[{"0", ",", "n"}], "]"}
+               ]
+              }
+             ],
+             ";"
+            }
+           ],
+           "\[IndentingNewLine]",
+           RowBox[
+            {
+             RowBox[
+              {
+               RowBox[
+                {
+                 "Do",
+                 "[",
+                 RowBox[
+                  {
+                   RowBox[
+                    {
+                     RowBox[{"theta", "[", RowBox[{"[", "i", "]"}], "]"}],
+                     "=",
+                     RowBox[
+                      {
+                       RowBox[
+                        {
+                         "theta",
+                         "[",
+                         RowBox[{"[", RowBox[{"i", "-", "1"}], "]"}],
+                         "]"
+                        }
+                       ],
+                       "+",
+                       RowBox[
+                        {
+                         RowBox[
+                          {
+                           RowBox[
+                            {
+                             "vTang",
+                             "[",
+                             RowBox[{"[", RowBox[{"i", "-", "1"}], "]"}],
+                             "]"
+                            }
+                           ],
+                           "/",
+                           "radius"
+                          }
+                         ],
+                         "*",
+                         "dt"
+                        }
+                       ]
+                      }
+                     ]
+                    }
+                   ],
+                   ",",
+                   RowBox[{"{", RowBox[{"i", ",", "2", ",", "n"}], "}"}]
+                  }
+                 ],
+                 "]"
+                }
+               ],
+               ";"
+              }
+             ],
+             "\[IndentingNewLine]",
+             "\[IndentingNewLine]",
+             RowBox[
+              {
+               "(*",
+               " ",
+               RowBox[{"True", " ", "Cartesian", " ", "trajectory"}],
+               " ",
+               "*)"
+              }
+             ]
+            }
+           ],
+           "\[IndentingNewLine]",
+           RowBox[
+            {
+             RowBox[
+              {
+               "xTrue",
+               "=",
+               RowBox[{"radius", " ", RowBox[{"Cos", "[", "theta", "]"}]}]
+              }
+             ],
+             ";"
+            }
+           ],
+           "\[IndentingNewLine]",
+           RowBox[
+            {
+             RowBox[
+              {
+               RowBox[
+                {
+                 "yTrue",
+                 "=",
+                 RowBox[{"radius", " ", RowBox[{"Sin", "[", "theta", "]"}]}]
+                }
+               ],
+               ";"
+              }
+             ],
+             "\[IndentingNewLine]",
+             "\[IndentingNewLine]",
+             RowBox[
+              {
+               "(*",
+               " ",
+               RowBox[{"Noisy", " ", "GPS", " ", "measurements"}],
+               " ",
+               "*)"
+              }
+             ]
+            }
+           ],
+           "\[IndentingNewLine]",
+           RowBox[{RowBox[{"sigma", "=", "3"}], ";"}],
+           "\[IndentingNewLine]",
+           RowBox[
+            {
+             RowBox[
+              {
+               "xMeas",
+               "=",
+               RowBox[
+                {
+                 "xTrue",
+                 "+",
+                 RowBox[
+                  {
+                   "RandomVariate",
+                   "[",
+                   RowBox[
+                    {
+                     RowBox[
+                      {
+                       "NormalDistribution",
+                       "[",
+                       RowBox[{"0", ",", "sigma"}],
+                       "]"
+                      }
+                     ],
+                     ",",
+                     "n"
+                    }
+                   ],
+                   "]"
+                  }
+                 ]
+                }
+               ]
+              }
+             ],
+             ";"
+            }
+           ],
+           "\[IndentingNewLine]",
+           RowBox[
+            {
+             RowBox[
+              {
+               RowBox[
+                {
+                 "yMeas",
+                 "=",
+                 RowBox[
+                  {
+                   "yTrue",
+                   "+",
+                   RowBox[
+                    {
+                     "RandomVariate",
+                     "[",
+                     RowBox[
+                      {
+                       RowBox[
+                        {
+                         "NormalDistribution",
+                         "[",
+                         RowBox[{"0", ",", "sigma"}],
+                         "]"
+                        }
+                       ],
+                       ",",
+                       "n"
+                      }
+                     ],
+                     "]"
+                    }
+                   ]
+                  }
+                 ]
+                }
+               ],
+               ";"
+              }
+             ],
+             "\[IndentingNewLine]",
+             "\[IndentingNewLine]",
+             RowBox[
+              {
+               "(*",
+               " ",
+               RowBox[
+                {
+                 RowBox[{"2", "D", " ", "constant"}],
+                 "-",
+                 RowBox[{"acceleration", " ", "model"}]
+                }
+               ],
+               " ",
+               "*)"
+              }
+             ]
+            }
+           ],
+           "\[IndentingNewLine]",
+           RowBox[
+            {
+             RowBox[
+              {
+               "F2",
+               "=",
+               RowBox[
+                {
+                 "{",
+                 RowBox[
+                  {
+                   RowBox[
+                    {
+                     "{",
+                     RowBox[
+                      {
+                       "1",
+                       ",",
+                       "0",
+                       ",",
+                       "dt",
+                       ",",
+                       "0",
+                       ",",
+                       RowBox[{RowBox[{"dt", "^", "2"}], "/", "2"}],
+                       ",",
+                       "0"
+                      }
+                     ],
+                     "}"
+                    }
+                   ],
+                   ",",
+                   RowBox[
+                    {
+                     "{",
+                     RowBox[
+                      {
+                       "0",
+                       ",",
+                       "1",
+                       ",",
+                       "0",
+                       ",",
+                       "dt",
+                       ",",
+                       "0",
+                       ",",
+                       RowBox[{RowBox[{"dt", "^", "2"}], "/", "2"}]
+                      }
+                     ],
+                     "}"
+                    }
+                   ],
+                   ",",
+                   "\[IndentingNewLine]",
+                   "      ",
+                   RowBox[
+                    {
+                     "{",
+                     RowBox[
+                      {"0", ",", "0", ",", "1", ",", "0", ",", "dt", ",", "0"}
+                     ],
+                     "}"
+                    }
+                   ],
+                   ",",
+                   RowBox[
+                    {
+                     "{",
+                     RowBox[
+                      {"0", ",", "0", ",", "0", ",", "1", ",", "0", ",", "dt"}
+                     ],
+                     "}"
+                    }
+                   ],
+                   ",",
+                   "\[IndentingNewLine]",
+                   "      ",
+                   RowBox[
+                    {
+                     "{",
+                     RowBox[
+                      {"0", ",", "0", ",", "0", ",", "0", ",", "1", ",", "0"}
+                     ],
+                     "}"
+                    }
+                   ],
+                   ",",
+                   RowBox[
+                    {
+                     "{",
+                     RowBox[
+                      {"0", ",", "0", ",", "0", ",", "0", ",", "0", ",", "1"}
+                     ],
+                     "}"
+                    }
+                   ]
+                  }
+                 ],
+                 "}"
+                }
+               ]
+              }
+             ],
+             ";"
+            }
+           ],
+           "\[IndentingNewLine]",
+           RowBox[
+            {
+             RowBox[
+              {
+               "H2",
+               "=",
+               RowBox[
+                {
+                 "{",
+                 RowBox[
+                  {
+                   RowBox[
+                    {
+                     "{",
+                     RowBox[
+                      {"1", ",", "0", ",", "0", ",", "0", ",", "0", ",", "0"}
+                     ],
+                     "}"
+                    }
+                   ],
+                   ",",
+                   RowBox[
+                    {
+                     "{",
+                     RowBox[
+                      {"0", ",", "1", ",", "0", ",", "0", ",", "0", ",", "0"}
+                     ],
+                     "}"
+                    }
+                   ]
+                  }
+                 ],
+                 "}"
+                }
+               ]
+              }
+             ],
+             ";"
+            }
+           ],
+           "\[IndentingNewLine]",
+           RowBox[
+            {
+             RowBox[
+              {
+               RowBox[
+                {
+                 "R2",
+                 "=",
+                 RowBox[
+                  {
+                   RowBox[{"sigma", "^", "2"}],
+                   " ",
+                   RowBox[{"IdentityMatrix", "[", "2", "]"}]
+                  }
+                 ]
+                }
+               ],
+               ";"
+              }
+             ],
+             "\[IndentingNewLine]"
+            }
+           ],
+           "\[IndentingNewLine]",
+           RowBox[
+            {
+             RowBox[{RowBox[{"qa2", "=", "1.0"}], ";"}],
+             " ",
+             RowBox[
+              {
+               "(*",
+               " ",
+               RowBox[
+                {
+                 "std",
+                 " ",
+                 "dev",
+                 " ",
+                 "of",
+                 " ",
+                 "random",
+                 " ",
+                 "acceleration",
+                 " ",
+                 "change",
+                 " ",
+                 "in",
+                 " ",
+                 "each",
+                 " ",
+                 "axis"
+                }
+               ],
+               " ",
+               "*)"
+              }
+             ]
+            }
+           ],
+           "\[IndentingNewLine]",
+           RowBox[
+            {
+             RowBox[
+              {
+               "G2",
+               "=",
+               RowBox[
+                {
+                 "{",
+                 RowBox[
+                  {
+                   RowBox[
+                    {
+                     "{",
+                     RowBox[
+                      {RowBox[{RowBox[{"dt", "^", "2"}], "/", "2"}], ",", "0"}
+                     ],
+                     "}"
+                    }
+                   ],
+                   ",",
+                   RowBox[
+                    {
+                     "{",
+                     RowBox[
+                      {"0", ",", RowBox[{RowBox[{"dt", "^", "2"}], "/", "2"}]}
+                     ],
+                     "}"
+                    }
+                   ],
+                   ",",
+                   RowBox[{"{", RowBox[{"dt", ",", "0"}], "}"}],
+                   ",",
+                   RowBox[{"{", RowBox[{"0", ",", "dt"}], "}"}],
+                   ",",
+                   RowBox[{"{", RowBox[{"1", ",", "0"}], "}"}],
+                   ",",
+                   RowBox[{"{", RowBox[{"0", ",", "1"}], "}"}]
+                  }
+                 ],
+                 "}"
+                }
+               ]
+              }
+             ],
+             ";"
+            }
+           ],
+           "\[IndentingNewLine]",
+           RowBox[
+            {
+             RowBox[
+              {
+               RowBox[
+                {
+                 "Q2",
+                 "=",
+                 RowBox[
+                  {
+                   RowBox[{"qa2", "^", "2"}],
+                   " ",
+                   RowBox[
+                    {
+                     "(",
+                     RowBox[
+                      {
+                       "G2",
+                       " ",
+                       ".",
+                       " ",
+                       RowBox[{"Transpose", "[", "G2", "]"}]
+                      }
+                     ],
+                     ")"
+                    }
+                   ]
+                  }
+                 ]
+                }
+               ],
+               ";"
+              }
+             ],
+             "\[IndentingNewLine]"
+            }
+           ],
+           "\[IndentingNewLine]",
+           RowBox[
+            {
+             RowBox[
+              {
+               RowBox[
+                {
+                 RowBox[
+                  {
+                   "step2D",
+                   "[",
+                   RowBox[
+                    {RowBox[{"{", RowBox[{"x_", ",", "P_"}], "}"}], ",", "z_"}
+                   ],
+                   "]"
+                  }
+                 ],
+                 ":=",
+                 RowBox[
+                  {
+                   "kalmanStep",
+                   "[",
+                   RowBox[
+                    {
+                     RowBox[{"{", RowBox[{"x", ",", "P"}], "}"}],
+                     ",",
+                     "z",
+                     ",",
+                     "F2",
+                     ",",
+                     "H2",
+                     ",",
+                     "Q2",
+                     ",",
+                     "R2"
+                    }
+                   ],
+                   "]"
+                  }
+                 ]
+                }
+               ],
+               ";"
+              }
+             ],
+             "\[IndentingNewLine]",
+             "\[IndentingNewLine]",
+             RowBox[
+              {
+               "(*",
+               " ",
+               RowBox[
+                {
+                 "Run",
+                 " ",
+                 "the",
+                 " ",
+                 "filter",
+                 " ",
+                 "over",
+                 " ",
+                 "the",
+                 " ",
+                 "noisy",
+                 " ",
+                 "GPS",
+                 " ",
+                 "positions"
+                }
+               ],
+               " ",
+               "*)"
+              }
+             ]
+            }
+           ],
+           "\[IndentingNewLine]",
+           RowBox[
+            {
+             RowBox[
+              {
+               "z",
+               "=",
+               RowBox[
+                {
+                 "Transpose",
+                 "[",
+                 RowBox[{"{", RowBox[{"xMeas", ",", "yMeas"}], "}"}],
+                 "]"
+                }
+               ]
+              }
+             ],
+             ";"
+            }
+           ],
+           "\[IndentingNewLine]",
+           RowBox[
+            {
+             RowBox[
+              {
+               "traj2",
+               "=",
+               RowBox[
+                {
+                 "FoldList",
+                 "[",
+                 RowBox[
+                  {
+                   "step2D",
+                   ",",
+                   RowBox[
+                    {
+                     "{",
+                     RowBox[
+                      {
+                       RowBox[
+                        {
+                         "{",
+                         RowBox[
+                          {
+                           RowBox[
+                            {
+                             "z",
+                             "[",
+                             RowBox[{"[", RowBox[{"1", ",", "1"}], "]"}],
+                             "]"
+                            }
+                           ],
+                           ",",
+                           RowBox[
+                            {
+                             "z",
+                             "[",
+                             RowBox[{"[", RowBox[{"1", ",", "2"}], "]"}],
+                             "]"
+                            }
+                           ],
+                           ",",
+                           "0",
+                           ",",
+                           "0",
+                           ",",
+                           "0",
+                           ",",
+                           "0"
+                          }
+                         ],
+                         "}"
+                        }
+                       ],
+                       ",",
+                       RowBox[
+                        {"10", " ", RowBox[{"IdentityMatrix", "[", "6", "]"}]}
+                       ]
+                      }
+                     ],
+                     "}"
+                    }
+                   ],
+                   ",",
+                   RowBox[{"Rest", "[", "z", "]"}]
+                  }
+                 ],
+                 "]"
+                }
+               ]
+              }
+             ],
+             ";"
+            }
+           ],
+           "\[IndentingNewLine]",
+           RowBox[
+            {
+             RowBox[
+              {
+               "xHist2",
+               "=",
+               RowBox[
+                {
+                 "traj2",
+                 "[",
+                 RowBox[{"[", RowBox[{"All", ",", "1"}], "]"}],
+                 "]"
+                }
+               ]
+              }
+             ],
+             ";"
+            }
+           ],
+           "\[IndentingNewLine]",
+           RowBox[
+            {
+             RowBox[
+              {
+               "xFilt",
+               "=",
+               RowBox[
+                {
+                 "xHist2",
+                 "[",
+                 RowBox[{"[", RowBox[{"All", ",", "1"}], "]"}],
+                 "]"
+                }
+               ]
+              }
+             ],
+             ";"
+            }
+           ],
+           "\[IndentingNewLine]",
+           RowBox[
+            {
+             RowBox[
+              {
+               RowBox[
+                {
+                 "yFilt",
+                 "=",
+                 RowBox[
+                  {
+                   "xHist2",
+                   "[",
+                   RowBox[{"[", RowBox[{"All", ",", "2"}], "]"}],
+                   "]"
+                  }
+                 ]
+                }
+               ],
+               ";"
+              }
+             ],
+             "\[IndentingNewLine]"
+            }
+           ],
+           "\[IndentingNewLine]",
+           RowBox[
+            {
+             RowBox[
+              {
+               "Print",
+               "[",
+               RowBox[
+                {
+                 "\"RMS error  measured vs true: \"",
+                 ",",
+                 RowBox[
+                  {
+                   "RootMeanSquare",
+                   "[",
+                   RowBox[
+                    {
+                     "Flatten",
+                     "[",
+                     RowBox[
+                      {
+                       "{",
+                       RowBox[
+                        {
+                         RowBox[{"xMeas", "-", "xTrue"}],
+                         ",",
+                         RowBox[{"yMeas", "-", "yTrue"}]
+                        }
+                       ],
+                       "}"
+                      }
+                     ],
+                     "]"
+                    }
+                   ],
+                   "]"
+                  }
+                 ]
+                }
+               ],
+               "]"
+              }
+             ],
+             ";"
+            }
+           ],
+           "\[IndentingNewLine]",
+           RowBox[
+            {
+             RowBox[
+              {
+               "Print",
+               "[",
+               RowBox[
+                {
+                 "\"RMS error  filtered vs true: \"",
+                 ",",
+                 RowBox[
+                  {
+                   "RootMeanSquare",
+                   "[",
+                   RowBox[
+                    {
+                     "Flatten",
+                     "[",
+                     RowBox[
+                      {
+                       "{",
+                       RowBox[
+                        {
+                         RowBox[{"xFilt", "-", "xTrue"}],
+                         ",",
+                         RowBox[{"yFilt", "-", "yTrue"}]
+                        }
+                       ],
+                       "}"
+                      }
+                     ],
+                     "]"
+                    }
+                   ],
+                   "]"
+                  }
+                 ]
+                }
+               ],
+               "]"
+              }
+             ],
+             ";"
+            }
+           ]
+          }
+         ],
+         "Input",
+         CellLabel -> "In[41]:="
+        ],
+        Cell[
+         "We should see three trajectories \[LongDash] the actual one, the noisy measured one, and the filtered one: ",
+         "CodeText"
+        ],
+        Cell[
+         BoxData[
+          RowBox[
+           {
+            "Show",
+            "[",
+            "\[IndentingNewLine]",
+            "  ",
+            RowBox[
+             {
+              RowBox[
+               {
+                "ListPlot",
+                "[",
+                RowBox[
+                 {
+                  RowBox[
+                   {
+                    "Transpose",
+                    "[",
+                    RowBox[{"{", RowBox[{"xMeas", ",", "yMeas"}], "}"}],
+                    "]"
+                   }
+                  ],
+                  ",",
+                  RowBox[
+                   {
+                    "PlotStyle",
+                    "->",
+                    RowBox[
+                     {
+                      "{",
+                      RowBox[
+                       {
+                        "Red",
+                        ",",
+                        RowBox[{"PointSize", "[", "0.008", "]"}],
+                        ",",
+                        RowBox[{"Opacity", "[", "0.6", "]"}]
+                       }
+                      ],
+                      "}"
+                     }
+                    ]
+                   }
+                  ]
+                 }
+                ],
+                "]"
+               }
+              ],
+              ",",
+              "\[IndentingNewLine]",
+              "  ",
+              RowBox[
+               {
+                "ListPlot",
+                "[",
+                RowBox[
+                 {
+                  RowBox[
+                   {
+                    "Transpose",
+                    "[",
+                    RowBox[{"{", RowBox[{"xTrue", ",", "yTrue"}], "}"}],
+                    "]"
+                   }
+                  ],
+                  ",",
+                  RowBox[
+                   {
+                    "PlotStyle",
+                    "->",
+                    RowBox[{"{", RowBox[{"Black", ",", "Thick"}], "}"}]
+                   }
+                  ],
+                  ",",
+                  RowBox[{"Joined", "->", "True"}]
+                 }
+                ],
+                "]"
+               }
+              ],
+              ",",
+              "\[IndentingNewLine]",
+              "  ",
+              RowBox[
+               {
+                "ListPlot",
+                "[",
+                RowBox[
+                 {
+                  RowBox[
+                   {
+                    "Transpose",
+                    "[",
+                    RowBox[{"{", RowBox[{"xFilt", ",", "yFilt"}], "}"}],
+                    "]"
+                   }
+                  ],
+                  ",",
+                  RowBox[
+                   {
+                    "PlotStyle",
+                    "->",
+                    RowBox[{"{", RowBox[{"Blue", ",", "Thick"}], "}"}]
+                   }
+                  ],
+                  ",",
+                  RowBox[{"Joined", "->", "True"}]
+                 }
+                ],
+                "]"
+               }
+              ],
+              ",",
+              "\[IndentingNewLine]",
+              "  ",
+              RowBox[
+               {
+                "PlotLegends",
+                "->",
+                RowBox[
+                 {
+                  "{",
+                  RowBox[
+                   {"\"Measured\"", ",", "\"Actual\"", ",", "\"Filtered\""}
+                  ],
+                  "}"
+                 }
+                ]
+               }
+              ],
+              ",",
+              "\[IndentingNewLine]",
+              "  ",
+              RowBox[{"AspectRatio", "->", "Automatic"}],
+              ",",
+              "\[IndentingNewLine]",
+              "  ",
+              RowBox[
+               {
+                "AxesLabel",
+                "->",
+                RowBox[{"{", RowBox[{"\"x (m)\"", ",", "\"y (m)\""}], "}"}]
+               }
+              ],
+              ",",
+              "\[IndentingNewLine]",
+              "  ",
+              RowBox[
+               {
+                "PlotLabel",
+                "->",
+                "\"Kalman filter on a circular race track\""
+               }
+              ],
+              ",",
+              "\[IndentingNewLine]",
+              "  ",
+              RowBox[{"ImageSize", "->", "500"}]
+             }
+            ],
+            "]"
+           }
+          ]
+         ],
+         "Input",
+         CellLabel -> "In[68]:="
+        ],
+        Cell[
+         "The filtered trajectory should be much closer to the actual one than the raw measurements. ",
+         "Text"
+        ]
+       },
+       Open
+      ]
+     ],
+     Cell[
+      CellGroupData[
+       {
+        Cell["10. Conclusion", "Section"],
+        Cell[
+         TextData[
+          {
+           "A Kalman filter is not simply a smoothing algorithm \[LongDash] it is a ",
+           StyleBox["state estimation", FontWeight -> Bold],
+           " algorithm. It uses a model of how the system evolves over time to estimate hidden variables (such as velocity and acceleration) as well as directly observed variables (position)."
+          }
+         ],
+         "Text"
+        ],
+        Cell[
+         "That distinction is what makes it so useful in vehicle tracking, robotics, navigation and financial time-series modelling.",
+         "Text"
+        ]
+       },
+       Open
+      ]
+     ]
+    },
+    Open
+   ]
+  ]
+ },
+ FrontEndVersion -> "15.0 for Mac OS X ARM (64-bit) (May 19, 2026)",
+ StyleDefinitions -> "Default.nb",
+ ExpressionUUID -> "a83bd6d1-c378-4ba4-8c49-4f0e587986a8"
+]
